@@ -1,0 +1,20 @@
+$ go run async_kafka.go
+AsyncProducer
+message sent 11001, duration 24 ms, rate=550K mess/s
+
+
+$ go run async_kafka2.go
+AsyncProducer2
+message sent 11001, duration 19 ms, rate=500K mess/s
+
+
+$ go run sync_kafka.go
+SyncProducer
+message sent 10001, duration 735 ms, rate=13K mess/s
+
+
+# CONFLUENT 'C' API
+$ go run confluent_send2.go 
+Created Producer rdkafka#producer-1
+message sent 50000, duration 1058 ms, rate=47K mess/s
+

@@ -1,0 +1,7 @@
+{
+ "file_max_time" : 30,
+ "file_max_size" : 10,
+ "total_size" : 10,
+ "buffer_dir" : "/tmp/kafka",
+ "prune_frequency" : 10
+}
