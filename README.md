@@ -19,7 +19,7 @@ Main features are:
    
  - When the total size of the message files reach a maximum , oldest files are removed to make space for the new ones.
 
- - Messages currently include a topic and message. newlines in the message are encoded ('\\n').
+ - Messages currently include a topic and message. newlines in the message are encoded ('\\\n').
 
  - messagebuffer define a 'Provider' inteface for use by providers. Example with a kafka Provider:
 
