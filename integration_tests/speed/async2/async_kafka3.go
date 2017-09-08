@@ -26,10 +26,12 @@ func main() {
 	var waitMs int
 	var reps int
 	var goreps int // # of goroutines
+	var messageBodySize int
 
 	flag.IntVar(&waitMs, "w", 0, "Delay ms (0)")
 	flag.IntVar(&reps, "m", 10, "# of messages")
 	flag.IntVar(&goreps, "g", 1, "# of goroutines")
+	flag.IntVar(&messageBodySize, "s", 100, "Message Body Size")
 	flag.Parse()
 
 	signals := make(chan os.Signal, 1)
@@ -41,7 +43,8 @@ func main() {
 
 	wg.Add(goreps)
 	for i := 0; i < goreps; i++ {
-		go sendMess("topic"+strconv.Itoa(i), waitMs, reps, config, signals, &wg)
+		go sendMess("topic"+strconv.Itoa(i), messageBodySize,
+			waitMs, reps, config, signals, &wg)
 	}
 
 	fmt.Println("blocking:start")
@@ -56,7 +59,7 @@ func main() {
 	fmt.Println("\nasync_kafka2 -w <delay:0> -m <#messages:1000> -g<#goroutines(1)> ")
 }
 
-func sendMess(topic string, waitMs int, reps int, config *sarama.Config, signals chan os.Signal, wg *sync.WaitGroup) {
+func sendMess(topic string, messageBodySize int, waitMs int, reps int, config *sarama.Config, signals chan os.Signal, wg *sync.WaitGroup) {
 
 	producer, err := sarama.NewAsyncProducer([]string{connector}, config)
 	fmt.Println("topic = ", topic)
@@ -69,17 +72,18 @@ func sendMess(topic string, waitMs int, reps int, config *sarama.Config, signals
 	}()
 
 	var enqueued, errors int64
-	var mess = "Test is a test message"
+	//var mess = "Test is a test message"
 ProducerLoop:
 	for {
 		if waitMs > 0 {
 			time.Sleep(time.Duration(waitMs) * time.Millisecond)
 		}
 
+		messageBody := sarama.ByteEncoder(make([]byte, messageBodySize))
 		select {
 		case producer.Input() <- &sarama.ProducerMessage{
 			Topic: topic, Key: nil,
-			Value: sarama.StringEncoder(mess)}:
+			Value: messageBody}: // sarama.StringEncoder(mess)}:
 			enqueued++
 			//log.Println("enqueued", enqueued)
 		case <-producer.Errors():

@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"os"
 
-	"github.com/sumatra/analytics/util"
+	"util"
 )
 
 // hosts : kafka brokers comma separated list

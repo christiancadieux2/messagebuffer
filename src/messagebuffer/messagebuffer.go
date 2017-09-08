@@ -13,8 +13,9 @@ import (
 	"syscall"
 	"time"
 
+	"util"
+
 	"github.com/Shopify/sarama"
-	"github.com/sumatra/analytics/util"
 )
 
 const providerUp = "U"

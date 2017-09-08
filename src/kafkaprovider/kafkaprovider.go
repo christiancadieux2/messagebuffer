@@ -3,9 +3,9 @@ package kafkaprovider
 import (
 	"log"
 	"strings"
+	"util"
 
 	"github.com/Shopify/sarama"
-	"github.com/sumatra/analytics/util"
 )
 
 const defaultPort = "9092"
@@ -43,7 +43,7 @@ func NewProvider(hosts string) (*KafkaProvider, error) {
 	util.Logln("Creating kafka handle", brokers)
 
 	config := sarama.NewConfig()
-	config.Producer.RequiredAcks = sarama.WaitForAll
+	config.Producer.RequiredAcks = sarama.WaitForLocal // WaitForAll
 	config.Producer.Retry.Max = 10
 	config.Producer.Return.Successes = false
 	// config.Producer.Flush.Frequency = 500 * time.Millisecond
