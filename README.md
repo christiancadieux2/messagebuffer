@@ -44,7 +44,7 @@ I considered these different approaches:
 
 Using multiple small files seemed like a good solution, easy to prune, easy to seek in the file. writing is fast as long as the buffer files are local. If the files are 10seconds file for example, priming the buffer is fast. 
 It's also possible if needed to send messages to kafka directly until the first error and then switch to 'buffering'. 
-Most of the time, there should be very few message files present unsell the provider cannot keep up with the client (spikes).
+Most of the time, there should be very few message files present unless the provider cannot keep up with the client (spikes).
 
 Speed Tests:
 ```
