@@ -3,6 +3,7 @@ package kafkaprovider
 import (
 	"log"
 	"strings"
+	"time"
 	"util"
 
 	"github.com/Shopify/sarama"
@@ -23,6 +24,7 @@ type KafkaProvider struct {
 	config        *sarama.Config
 	producer      sarama.AsyncProducer
 	retryWaitTime int
+	pace          int // millisec
 }
 
 // NewProvider creates a kafkaProvider
@@ -40,10 +42,11 @@ func NewProvider(hosts string) (*KafkaProvider, error) {
 	kc.hosts = hosts
 
 	kc.retryWaitTime = 10 // seconds
+	kc.pace = 0
 	util.Logln("Creating kafka handle", brokers)
 
 	config := sarama.NewConfig()
-	config.Producer.RequiredAcks = sarama.WaitForLocal // WaitForAll
+	config.Producer.RequiredAcks = sarama.WaitForAll
 	config.Producer.Retry.Max = 10
 	config.Producer.Return.Successes = false
 	// config.Producer.Flush.Frequency = 500 * time.Millisecond
@@ -51,6 +54,11 @@ func NewProvider(hosts string) (*KafkaProvider, error) {
 
 	kc.config = config
 	return kc, nil
+}
+
+// SetPace saves millisec to wait between calls to kafka
+func (kc *KafkaProvider) SetPace(s int) {
+	kc.pace = s
 }
 
 // Name of provider
@@ -93,6 +101,9 @@ func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, int) {
 
 	errors := 0
 	sent := 0
+	if kc.pace > 0 {
+		time.Sleep(time.Duration(kc.pace) * time.Millisecond)
+	}
 	select {
 	case kc.producer.Input() <- msg:
 		sent++
