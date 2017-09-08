@@ -21,7 +21,7 @@ Main features are:
 
  - Messages currently include a topic and message. newlines in the message are encoded ('\\\n').
 
- - messagebuffer define a 'Provider' inteface for use by providers. Example with a kafka Provider:
+ - messagebuffer defines a 'Provider' inteface for use by providers. Example with a kafka Provider:
 
 ```
   kprovider, err := kafkaprovider.NewProvider(khost)

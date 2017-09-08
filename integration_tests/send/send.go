@@ -16,20 +16,28 @@ var CONFIG = "/opt/comcast/kafka_test/src/github.com/sumatra/kafka/send/config.j
 
 func main() {
 
-	iterations := flag.Int("i", 100, "Iterations")
-	topicS := flag.String("t", "test", "Topics")
-	waitMs := flag.Int("w", 900, "Delay ms (0)")
-	config := flag.String("c", CONFIG, "Config File")
-	help := flag.Bool("h", false, "help")
+	var iterations int
+	var waitMs int
+	var topicS string
+	var config string
+	var help bool
+	var providerPace int
+	flag.IntVar(&iterations, "i", 100, "Iterations")
+	flag.StringVar(&topicS, "t", "test", "Topics")
+	flag.IntVar(&waitMs, "w", 900, "Delay ms (0)")
+	flag.StringVar(&config, "c", CONFIG, "Config File")
+	flag.BoolVar(&help, "h", false, "help")
+	flag.IntVar(&providerPace, "p", 0, "provider pace")
 
 	flag.Parse()
-	if *help {
+	if help {
 		fmt.Println(`
-         send -i <iter> -t <topic> -c <config> -w <wait>
+         send -i <iter> -t <topic> -c <config> -w <wait> -p <pace>
              -i <iterations>: iterations (10)
              -t <topic>  : Topic (test)
 						 -c <config> : Config file for messagebuffer
 						 -w <secs>   : Wait between iterations (0)
+						 -p <msecs>  : pace of provider (millsec)
          `)
 		os.Exit(0)
 	}
@@ -40,11 +48,14 @@ func main() {
 	}
 
 	kprovider, err := kafkaprovider.NewProvider(khost)
+	if providerPace > 0 {
+		kprovider.SetPace(providerPace)
+	}
 	if err != nil {
 		fmt.Println("Cannot create Provider")
 		panic(err)
 	}
-	buffer, err := messagebuffer.NewBuffer(kprovider, *config) // one MB buffer
+	buffer, err := messagebuffer.NewBuffer(kprovider, config) // one MB buffer
 	if err != nil {
 		fmt.Println("Cannot create  Buffer")
 		panic(err)
@@ -59,14 +70,14 @@ func main() {
 
 	pid := os.Getpid()
 	var x int
-	for x = 1; x <= *iterations; x++ {
-		if *waitMs > 0 {
-			time.Sleep(time.Duration(*waitMs) * time.Millisecond)
+	for x = 1; x <= iterations; x++ {
+		if waitMs > 0 {
+			time.Sleep(time.Duration(waitMs) * time.Millisecond)
 		}
 		fmt.Printf("%d", x)
 
 		mess := strconv.Itoa(pid) + ": Something Cool-" + strconv.Itoa(x)
-		err := buffer.WriteMessage(*topicS, mess, "key")
+		err := buffer.WriteMessage(topicS, mess, "key")
 
 		if err != nil {
 			fmt.Println(err)

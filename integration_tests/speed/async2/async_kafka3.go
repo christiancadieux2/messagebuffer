@@ -23,9 +23,13 @@ func main() {
 	config.Producer.Return.Successes = false
 	config.Producer.RequiredAcks = sarama.WaitForAll
 
-	waitMs := flag.Int("w", 0, "Delay ms (0)")
-	reps := flag.Int("m", 10, "# of messages")
-	gos := flag.Int("g", 1, "# of goroutines")
+	var waitMs int
+	var reps int
+	var goreps int // # of goroutines
+
+	flag.IntVar(&waitMs, "w", 0, "Delay ms (0)")
+	flag.IntVar(&reps, "m", 10, "# of messages")
+	flag.IntVar(&goreps, "g", 1, "# of goroutines")
 	flag.Parse()
 
 	signals := make(chan os.Signal, 1)
@@ -35,8 +39,8 @@ func main() {
 
 	var start = time.Now().UnixNano() / int64(time.Millisecond)
 
-	wg.Add(*gos)
-	for i := 0; i < *gos; i++ {
+	wg.Add(goreps)
+	for i := 0; i < goreps; i++ {
 		go sendMess("topic"+strconv.Itoa(i), waitMs, reps, config, signals, &wg)
 	}
 
@@ -45,14 +49,14 @@ func main() {
 	fmt.Println("blocking:end")
 
 	var duration = time.Now().UnixNano()/int64(time.Millisecond) - start
-	enqueued := int64(*reps * *gos)
+	enqueued := int64(reps * goreps)
 	var rate = enqueued / duration * 1000
 	fmt.Println("\nAsyncProducer2")
 	fmt.Printf("message sent %d, duration %d ms, rate=%d mess/s\n", enqueued, duration, rate)
 	fmt.Println("\nasync_kafka2 -w <delay:0> -m <#messages:1000> -g<#goroutines(1)> ")
 }
 
-func sendMess(topic string, waitMs *int, reps *int, config *sarama.Config, signals chan os.Signal, wg *sync.WaitGroup) {
+func sendMess(topic string, waitMs int, reps int, config *sarama.Config, signals chan os.Signal, wg *sync.WaitGroup) {
 
 	producer, err := sarama.NewAsyncProducer([]string{connector}, config)
 	fmt.Println("topic = ", topic)
@@ -68,8 +72,8 @@ func sendMess(topic string, waitMs *int, reps *int, config *sarama.Config, signa
 	var mess = "Test is a test message"
 ProducerLoop:
 	for {
-		if *waitMs > 0 {
-			time.Sleep(time.Duration(*waitMs) * time.Millisecond)
+		if waitMs > 0 {
+			time.Sleep(time.Duration(waitMs) * time.Millisecond)
 		}
 
 		select {
@@ -88,7 +92,7 @@ ProducerLoop:
 			fmt.Println("Got signal")
 			break ProducerLoop
 		}
-		if enqueued >= int64(*reps) {
+		if enqueued >= int64(reps) {
 			break ProducerLoop
 		}
 	}
