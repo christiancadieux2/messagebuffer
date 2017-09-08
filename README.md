@@ -46,7 +46,7 @@ Using multiple small files seemed like a good solution, easy to prune, easy to s
 It's also possible if needed to send messages to kafka directly until the first error and then switch to 'buffering'. 
 Most of the time, there should be very few message files present unless the provider cannot keep up with the client (spikes).
 
-Speed Tests:
+Speed Tests: Done on ubuntu/corei7 3.6Ghz with kafka single node running locally in container.
 ```
    sarama-sync  :   15K mess/sec
    sarama-async :  450K mess/s
