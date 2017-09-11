@@ -18,23 +18,29 @@ import (
 // CONFIG : config
 var CONFIG = "/opt/comcast/messagebuffer/integration_tests/send/config.json"
 
+var default_topic = "raw.viper.sumatra.collector.LogEvent"
+var inputDelay int
+
 func main() {
 
 	var iterations int
-	var waitMs int
+
 	var topicS string
 	var config string
 	var fakeProvider bool
 	var help bool
-	var providerPace int
+	var outputDelay int
 	var messageLen int
 	flag.IntVar(&iterations, "i", 100, "Iterations")
 	flag.StringVar(&topicS, "t", "test", "Topics")
-	flag.IntVar(&waitMs, "w", 1000, "Delay microsec (1000)")
+
 	flag.IntVar(&messageLen, "l", 100, "Message Len (100)")
 	flag.StringVar(&config, "c", CONFIG, "Config File")
 	flag.BoolVar(&help, "h", false, "help")
-	flag.IntVar(&providerPace, "p", 0, "provider pace")
+
+	flag.IntVar(&inputDelay, "w", 1000, "Input delay microsec (1000)")
+	flag.IntVar(&outputDelay, "p", 1000, "output delay microsec (1000) ")
+
 	flag.BoolVar(&fakeProvider, "f", false, "fake provider")
 
 	flag.Parse()
@@ -46,8 +52,8 @@ func main() {
              -t <topic>  : Topic (test)
 						 -l <len>    : message length
 						 -c <config> : Config file for messagebuffer
-						 -w <micros>   : Wait between iterations (1000)
-						 -p <msecs>  : pace of provider (millisec)
+						 -w <micros>   : Input Delay (1000 microsecs)
+						 -p <micro>  : Output Delay (1000 microsecs)
          `)
 		os.Exit(0)
 	}
@@ -63,16 +69,17 @@ func main() {
 	if fakeProvider {
 		kprovider, err = fakeprovider.NewProvider(khost, 0)
 	} else {
-		kprovider, err = kafkaprovider.NewProvider(khost, 10)
+		kprovider, err = kafkaprovider.NewProvider(khost, 10, "")
 	}
-	if providerPace > 0 {
-		kprovider.SetPace(providerPace)
-	}
+
 	if err != nil {
 		fmt.Println("Cannot create Provider")
 		panic(err)
 	}
 	buffer, err := messagebuffer.NewBuffer(kprovider, config) // one MB buffer
+	if outputDelay > 0 {
+		buffer.SetOutputDelay(outputDelay)
+	}
 	if err != nil {
 		fmt.Println("Cannot create  Buffer")
 		panic(err)
@@ -91,8 +98,8 @@ func main() {
 	var x int
 
 	for x = 1; x <= iterations; x++ {
-		if waitMs > 0 {
-			time.Sleep(time.Duration(waitMs) * time.Microsecond)
+		if inputDelay > 0 {
+			time.Sleep(time.Duration(inputDelay) * time.Microsecond)
 		}
 
 		if x%1000 == 0 {
@@ -124,6 +131,26 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		fmt.Println("Inject Error")
 		buffer.InjectError()
 		c.String(http.StatusOK, "OK")
+	})
+	r.GET("/inputDelay/:delay", func(c *gin.Context) {
+		delay := c.Param("delay")
+		delay_micros, err := strconv.Atoi(delay)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid input delay (microsec)="+delay)
+		} else {
+			inputDelay = delay_micros
+			c.String(http.StatusOK, "OK")
+		}
+	})
+	r.GET("/outputDelay/:delay", func(c *gin.Context) {
+		delay := c.Param("delay")
+		delay_micros, err := strconv.Atoi(delay)
+		if err != nil {
+			c.String(http.StatusBadRequest, "Invalid output delay (microsec)="+delay)
+		} else {
+			buffer.SetOutputDelay(delay_micros)
+			c.String(http.StatusOK, "OK")
+		}
 	})
 
 	r.Run(":8080")

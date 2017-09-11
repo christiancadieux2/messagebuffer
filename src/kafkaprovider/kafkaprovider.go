@@ -3,7 +3,6 @@ package kafkaprovider
 import (
 	"log"
 	"strings"
-	"time"
 	"util"
 
 	"github.com/Shopify/sarama"
@@ -24,12 +23,11 @@ type KafkaProvider struct {
 	config        *sarama.Config
 	producer      sarama.AsyncProducer
 	retryWaitTime int
-
-	pace int // microsec
+	clientID      string
 }
 
 // NewProvider creates a kafkaProvider
-func NewProvider(hosts string, retryWait int) (*KafkaProvider, error) {
+func NewProvider(hosts string, retryWait int, clientId string) (*KafkaProvider, error) {
 
 	kc := new(KafkaProvider)
 
@@ -43,23 +41,23 @@ func NewProvider(hosts string, retryWait int) (*KafkaProvider, error) {
 	kc.hosts = hosts
 
 	kc.retryWaitTime = retryWait
-	kc.pace = 0
+
 	util.Logln("Creating kafka handle", brokers)
 
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll
-	config.Producer.Retry.Max = 10
+	config.Producer.Retry.Max = 4
 	config.Producer.Return.Successes = false
+	// config.Producer.Compression = sarama.CompressionSnappy
+	if clientId == "" {
+		clientId = "golang-headwaters-sample-producer"
+	}
+	config.ClientID = clientId
 	// config.Producer.Flush.Frequency = 500 * time.Millisecond
 	// config.ChannelBufferSize = 10000
 
 	kc.config = config
 	return kc, nil
-}
-
-// SetPace saves millisec to wait between calls to kafka
-func (kc *KafkaProvider) SetPace(s int) {
-	kc.pace = s
 }
 
 // Name of provider
@@ -93,6 +91,9 @@ func (kc *KafkaProvider) CloseProducer() error {
 }
 
 // SendMessage send a message and listen for errors
+//strTime := strconv.Itoa(int(time.Now().Unix()))
+//Key:   sarama.StringEncoder(strTime), Partition: 6
+
 func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, error) {
 
 	msg := &sarama.ProducerMessage{
@@ -102,9 +103,7 @@ func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, error) {
 
 	errors := 0
 	sent := 0
-	if kc.pace > 0 {
-		time.Sleep(time.Duration(kc.pace) * time.Microsecond)
-	}
+
 	var lastError error
 
 	select {

@@ -53,6 +53,7 @@ type MessageBufferHandle struct {
 	bufferSendChan chan int8
 	lastPruneTime  int64
 	fileMux        sync.Mutex
+	outputDelay    int
 }
 
 // NewBuffer Create messagebuffer.
@@ -205,6 +206,10 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			keepFile = true
 			break
 		}
+		if kc.outputDelay > 0 {
+			time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
+		}
+
 		line0, readErr = scanner.ReadBytes(rowDelim)
 		if readErr != nil {
 			break
@@ -338,6 +343,11 @@ func (kc *MessageBufferHandle) Close() error {
 	return nil
 	//return kc.provider.CloseProducer()
 
+}
+
+// SetOutputDelay saves millisec to wait between calls to kafka
+func (kc *MessageBufferHandle) SetOutputDelay(s int) {
+	kc.outputDelay = s
 }
 
 func (kc *MessageBufferHandle) newFileName() string {
