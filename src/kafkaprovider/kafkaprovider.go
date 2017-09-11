@@ -15,7 +15,6 @@ const defaultPort = "9092"
 //   sarama-async :  450K mess/s
 //   confluent 'C':   45K mess/s
 //   file-buffer  :  1200K message/sec
-
 // KafkaProvider manage one sarama configuration and one current producer.
 type KafkaProvider struct {
 	hosts         string
@@ -93,6 +92,8 @@ func (kc *KafkaProvider) CloseProducer() error {
 // SendMessage send a message and listen for errors
 //strTime := strconv.Itoa(int(time.Now().Unix()))
 //Key:   sarama.StringEncoder(strTime), Partition: 6
+// Not setting a message key means that all messages will
+//  be distributed randomly over the different partitions.
 
 func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, error) {
 

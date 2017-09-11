@@ -2,15 +2,14 @@ package messagebuffer
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/signal"
 	"path"
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
 	"time"
 
 	"util"
@@ -26,9 +25,9 @@ const seekPrefix = "S"
 const topicDelim = "\t"       // delimiter topic | message
 const rowDelim = '\n'         // buffer row delimiter
 const processFilesPeriod = 15 // wait seconds to process more files
-var gotSignal bool = false
 
 // MessageBufferHandle handles buffering to provider.
+//  ref: https://github.com/elodina/go_kafka_client
 // a separate goroutine send the data to provider from the files
 // new files are started when old/big enough
 // old files are prunes when too many
@@ -54,10 +53,11 @@ type MessageBufferHandle struct {
 	lastPruneTime  int64
 	fileMux        sync.Mutex
 	outputDelay    int
+	context        context.Context
 }
 
 // NewBuffer Create messagebuffer.
-func NewBuffer(provider Provider, configFilename string) (*MessageBufferHandle, error) {
+func NewBuffer(ctx context.Context, provider Provider, configFilename string) (*MessageBufferHandle, error) {
 	kc := new(MessageBufferHandle)
 	kc.provider = provider
 	bufferConfig, err := ReadConfig(configFilename)
@@ -71,15 +71,6 @@ func NewBuffer(provider Provider, configFilename string) (*MessageBufferHandle, 
 	kc.allDone = false
 
 	kc.bufferSendChan = make(chan int8, 100)
-
-	sigs := make(chan os.Signal, 1)
-	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		sig := <-sigs
-		util.Logln(sig)
-		gotSignal = true
-	}()
 
 	go kc.processFiles()
 
@@ -121,12 +112,16 @@ func (kc *MessageBufferHandle) processFiles() error {
 	}
 
 	for {
-		if gotSignal || kc.allDone {
+		if kc.allDone {
 			break
 		}
 		select {
 		case <-time.After(time.Second * time.Duration(kc.bufferConfig.FileMaxTime)):
 			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
+
+		case <-kc.context.Done():
+			util.Logln("context.Done")
+			break
 
 		case <-kc.bufferSendChan:
 			for len(kc.bufferSendChan) > 0 { // empty the channel
@@ -201,11 +196,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 	for {
 		var line0 []byte
 		var readErr error
-		if gotSignal {
-			setSeek(dirPath, name, fPos)
-			keepFile = true
-			break
-		}
+
 		if kc.outputDelay > 0 {
 			time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
 		}

@@ -1,13 +1,17 @@
 package main
 
 import (
+	"context"
 	"fakeprovider"
 	"flag"
 	"fmt"
 	"net/http"
 	"os"
+	"os/signal"
 	"strconv"
+	"syscall"
 	"time"
+	"util"
 
 	"kafkaprovider"
 	"messagebuffer"
@@ -77,7 +81,9 @@ func main() {
 		fmt.Println("Cannot create Provider")
 		panic(err)
 	}
-	buffer, err := messagebuffer.NewBuffer(kprovider, config) // one MB buffer
+	ctx, cancel := context.WithCancel(context.Background())
+
+	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config) // one MB buffer
 	if outputDelay > 0 {
 		buffer.SetOutputDelay(outputDelay)
 	}
@@ -85,6 +91,15 @@ func main() {
 		fmt.Println("Cannot create  Buffer")
 		panic(err)
 	}
+
+	sigs := make(chan os.Signal, 1)
+	signal.Notify(sigs, syscall.SIGINT, syscall.SIGTERM)
+
+	go func() {
+		sig := <-sigs
+		util.Logln(sig)
+		cancel() // <- ctx.Done()
+	}()
 
 	go server(buffer)
 
