@@ -20,6 +20,7 @@ var CONFIG = "/opt/comcast/messagebuffer/integration_tests/send/config.json"
 
 var default_topic = "raw.viper.sumatra.collector.LogEvent"
 var inputDelay int
+var webPort = "8080"
 
 func main() {
 
@@ -124,7 +125,9 @@ func main() {
 
 // inject error: wget localhost:8080/injectError
 func server(buffer *messagebuffer.MessageBufferHandle) {
-	fmt.Println("localhost:8080/injectError : Inject Provider error.")
+	fmt.Println("/injectError : Inject Provider error.")
+	fmt.Println("/inputDelay/<microsecs> : delay when writing to buffer.")
+	fmt.Println("/optputDelay/<microsecs> : delay when writing to kafka.")
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.GET("/injectError", func(c *gin.Context) {
@@ -153,7 +156,7 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		}
 	})
 
-	r.Run(":8080")
+	r.Run(":" + webPort)
 }
 
 func speed(count int, start time.Time, prefix string) {

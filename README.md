@@ -85,7 +85,7 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 
 
 
-Jeff Dean: numbers everyone should know
+Jeff Dean: "Numbers everyone should know."
 ```
 L1 cache reference                             0.5 ns   
 Branch mispredict                              5 ns
