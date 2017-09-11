@@ -24,11 +24,12 @@ type KafkaProvider struct {
 	config        *sarama.Config
 	producer      sarama.AsyncProducer
 	retryWaitTime int
-	pace          int // millisec
+
+	pace int // microsec
 }
 
 // NewProvider creates a kafkaProvider
-func NewProvider(hosts string) (*KafkaProvider, error) {
+func NewProvider(hosts string, retryWait int) (*KafkaProvider, error) {
 
 	kc := new(KafkaProvider)
 
@@ -41,7 +42,7 @@ func NewProvider(hosts string) (*KafkaProvider, error) {
 	kc.brokers = brokers
 	kc.hosts = hosts
 
-	kc.retryWaitTime = 10 // seconds
+	kc.retryWaitTime = retryWait
 	kc.pace = 0
 	util.Logln("Creating kafka handle", brokers)
 
@@ -63,7 +64,7 @@ func (kc *KafkaProvider) SetPace(s int) {
 
 // Name of provider
 func (kc *KafkaProvider) Name() string {
-	return "Kafka Provider at " + kc.hosts
+	return "Kafka at " + kc.hosts
 }
 
 // GetRetryWaitTime informs the messagebuffer how long to wait when kafka is down
@@ -92,7 +93,7 @@ func (kc *KafkaProvider) CloseProducer() error {
 }
 
 // SendMessage send a message and listen for errors
-func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, int) {
+func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, error) {
 
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
@@ -102,14 +103,17 @@ func (kc *KafkaProvider) SendMessage(topic string, mess string) (int, int) {
 	errors := 0
 	sent := 0
 	if kc.pace > 0 {
-		time.Sleep(time.Duration(kc.pace) * time.Millisecond)
+		time.Sleep(time.Duration(kc.pace) * time.Microsecond)
 	}
+	var lastError error
+
 	select {
 	case kc.producer.Input() <- msg:
 		sent++
 	case err := <-kc.producer.Errors():
 		log.Println("Failed to produce message", err)
+		lastError = err
 		errors++
 	}
-	return sent, errors
+	return sent, lastError
 }

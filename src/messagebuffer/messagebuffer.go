@@ -36,13 +36,14 @@ var gotSignal bool = false
 
 type MessageBufferHandle struct {
 	state                    string
-	fake                     bool
+	fakeError                bool
 	currentBufferFile        *os.File
 	currentBufferFilename    string
 	currentBufferFileSize    int64 // size of current bufferfile
 	currentBufferFileCreated int64
 
 	config         *sarama.Config
+	allDone        bool // no more files to process
 	maxBuffer      int32
 	providerDownTs int64
 	providerUpTs   int64
@@ -66,6 +67,7 @@ func NewBuffer(provider Provider, configFilename string) (*MessageBufferHandle, 
 	kc.bufferConfig = bufferConfig
 
 	kc.state = providerUp
+	kc.allDone = false
 
 	kc.bufferSendChan = make(chan int8, 100)
 
@@ -118,7 +120,7 @@ func (kc *MessageBufferHandle) processFiles() error {
 	}
 
 	for {
-		if gotSignal {
+		if gotSignal || kc.allDone {
 			break
 		}
 		select {
@@ -142,6 +144,7 @@ func (kc *MessageBufferHandle) processFiles() error {
 			kc.pruneOldFiles() // remove if too old
 		}
 	}
+	util.Logln("processFiles: all done!")
 	return nil
 }
 
@@ -153,12 +156,16 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 		if err != nil {
 			util.Logln("Cannot create NewSyncProducer", err)
 			return nil
+		} else {
+			util.Logln(" open producer")
 		}
+		start := time.Now()
+		keepFile, rowCnt := kc.processOneFile(name)
+		util.Logln("    ", util.Speed(rowCnt, start, kc.provider.Name()))
 
-		keepFile := kc.processOneFile(name)
 		if !keepFile {
 			fullname := path.Join(kc.bufferConfig.BufferDir, name)
-			util.Logln("removing", fullname)
+			util.Logln(" removing", fullname)
 			os.Remove(fullname)
 		}
 		kc.provider.CloseProducer()
@@ -169,11 +176,11 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 // send one file to provider , wait on provider error,
 // give up when too long
 
-func (kc *MessageBufferHandle) processOneFile(name string) bool {
+func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 	dirPath := kc.bufferConfig.BufferDir
 	fullname := path.Join(dirPath, name)
-	util.Logln("processOneFile", fullname)
+	util.Logln("  processOneFile:", fullname)
 	file, err := os.Open(fullname)
 	fPosStart := getSeek(kc.bufferConfig.BufferDir, name)
 	if fPosStart > 0 {
@@ -183,12 +190,13 @@ func (kc *MessageBufferHandle) processOneFile(name string) bool {
 
 	if err != nil {
 		util.Logln("Cannot open", fullname)
-		return true
+		return true, 0
 	}
 	defer file.Close()
 	scanner := bufio.NewReader(file)
 	var fPos int64
 	keepFile := false
+	var rowCnt int64
 	for {
 		var line0 []byte
 		var readErr error
@@ -211,12 +219,19 @@ func (kc *MessageBufferHandle) processOneFile(name string) bool {
 		topic := string(line[0:ix])
 		mess := string(line[ix+1:])
 
-		_, errCnt := kc.provider.SendMessage(topic, mess)
-		if errCnt == 0 {
-			util.Logln("sending ", len(mess), "bytes to provider"+kc.provider.Name())
+		_, err := kc.provider.SendMessage(topic, mess)
+		rowCnt++
+		if err == nil && !kc.fakeError {
+			//util.Logln("sending ", len(mess), "bytes to provider"+kc.provider.Name())
 			fPos += int64(len(line))
+
 		} else {
-			util.Logln("producer.SendMessage failed", err)
+			if kc.fakeError {
+				kc.fakeError = false
+				util.Logln("producer.SendMessage failed: fakeError")
+			} else {
+				util.Logln("producer.SendMessage failed", err)
+			}
 			setSeek(dirPath, name, fPos)
 			kc.setDown()
 			retryStart := util.GetNow()
@@ -225,11 +240,13 @@ func (kc *MessageBufferHandle) processOneFile(name string) bool {
 			for util.GetNow()-retryStart < pf {
 				time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
 				util.Logln("retrying provider..")
-				_, errCnt = kc.provider.SendMessage(topic, mess) // partition, offset
-				if errCnt == 0 {
+				_, err = kc.provider.SendMessage(topic, mess) // partition, offset
+				if err == nil {
 					kc.setUp()
 					setSeek(dirPath, name, 0)
 					break
+				} else {
+					util.Logln("producer.SendMessage failedAgain", err)
 				}
 			}
 			if kc.state == providerDown {
@@ -238,7 +255,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) bool {
 		}
 	}
 
-	return keepFile
+	return keepFile, rowCnt
 }
 
 // save seek Value in 'S' file to reuse if needed when service restart
@@ -300,8 +317,8 @@ func (kc *MessageBufferHandle) pruneOldFiles() error {
 }
 
 // for testing provider down
-func (kc *MessageBufferHandle) fakeDown() {
-	kc.fake = true
+func (kc *MessageBufferHandle) InjectError() {
+	kc.fakeError = true
 }
 
 func (kc *MessageBufferHandle) setDown() {
@@ -317,7 +334,9 @@ func (kc *MessageBufferHandle) setUp() {
 // Close : close connection.
 func (kc *MessageBufferHandle) Close() error {
 	kc.closeRenameFile()
-	return kc.provider.CloseProducer()
+	kc.allDone = true
+	return nil
+	//return kc.provider.CloseProducer()
 
 }
 
@@ -326,7 +345,7 @@ func (kc *MessageBufferHandle) newFileName() string {
 	t1 := fmt.Sprintf("%d%02d%02d-%02d%02d%02d", t.Year(), t.Month(), t.Day(),
 		t.Hour(), t.Minute(), t.Second())
 	fn := path.Join(kc.bufferConfig.BufferDir, t1)
-	util.Logln("Generating file", fn)
+	util.Logln("-  generating file", fn)
 	return fn
 }
 
@@ -352,10 +371,12 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 	if kc.currentBufferFile != nil {
 		if kc.currentBufferFileSize > int64(kc.bufferConfig.FileMaxSize*1000000) { // too big, get a new one
 			needNew = true
+			util.Logln("neednew: too big")
 		} else if kc.currentBufferFileSize > 0 {
 			age := util.GetNow() - kc.currentBufferFileCreated
-			util.Logln("age=", age, "max=", kc.bufferConfig.FileMaxTime)
+
 			if age > int64(kc.bufferConfig.FileMaxTime) { // too old, get new one
+				util.Logln("neednew: age=", age, "max=", kc.bufferConfig.FileMaxTime)
 				needNew = true
 			}
 		}
@@ -365,8 +386,9 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 
 	if needNew {
 		kc.closeRenameFile()
-		filename := kc.newFileName()
 		util.Logln("creating new file")
+		filename := kc.newFileName()
+
 		file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
 			util.Logln("Cannot open", filename)
@@ -390,7 +412,7 @@ func (kc *MessageBufferHandle) bufferMessage(topic string, message string) error
 	kc.fileMux.Lock()
 	defer kc.fileMux.Unlock()
 	f, _ := kc.getCurrentFile()
-	util.Logln("name=", kc.currentBufferFilename)
+	//util.Logln("name=", kc.currentBufferFilename)
 	message2 := strings.Replace(message, "\n", "\\n", -1) // in case
 	m := topic + topicDelim + message2 + string(rowDelim)
 	if _, err := f.WriteString(m); err != nil {

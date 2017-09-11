@@ -46,6 +46,14 @@ Using multiple small files seemed like a good solution, easy to prune, easy to s
 It's also possible if needed to send messages to kafka directly until the first error and then switch to 'buffering'. 
 Most of the time, there should be very few message files present unless the provider cannot keep up with the client (spikes).
 
+Background:
+
+Modern disk-drives can do 100MB/second / (100 bytes messages) is 1M mess/s.
+1Gigabit network under ideal conditions can do 1G / (8 bit/byte) / (100 bytes message) = 1.25M mess/s.
+
+
+
+
 Speed Tests: Done on ubuntu/corei7 3.6Ghz with kafka single node running locally in container.
 ```
    sarama-sync  :   15K mess/sec
@@ -73,4 +81,30 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 
 ![Diagram](https://user-images.githubusercontent.com/10535265/30186693-d5669528-93e3-11e7-89b9-25bd269ac228.png)
 - 
+
+
+
+
+Jeff Dean: numbers everyone should know
+```
+L1 cache reference                             0.5 ns   
+Branch mispredict                              5 ns
+L2 cache reference                             7 ns
+Mutex lock/unlock                             25 ns
+Main memory reference                        100 ns
+Compress 1K bytes with Zippy               3,000 ns
+Send 2K bytes over 1 Gbps network         20,000 ns
+Read 1 MB sequentially from memory       250,000 ns
+Round trip within same datacenter        500,000 ns
+Disk seek                             10,000,000 ns
+Read 1 MB sequentially from disk      20,000,000 ns
+Send packet CA->Netherlands->CA      150,000,000 ns
+
+*Write 1MB sequentially to disk       10,000,000 ns    1/100 second
+*Write 1MB over 1GBps network         10,000,000 ns
+*Compress 1M bytes with Zippy          3,000,000 ns
+
+
+```
+
 
