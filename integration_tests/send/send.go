@@ -29,7 +29,7 @@ var webPort = "8080"
 func main() {
 
 	var iterations int
-
+	var allDone bool = false
 	var topicS string
 	var config string
 	var fakeProvider bool
@@ -98,6 +98,7 @@ func main() {
 	go func() {
 		sig := <-sigs
 		util.Logln(sig)
+		allDone = true
 		cancel() // <- ctx.Done()
 	}()
 
@@ -113,7 +114,7 @@ func main() {
 	pid := os.Getpid()
 	var x int
 
-	for x = 1; x <= iterations; x++ {
+	for x = 1; x <= iterations && !allDone; x++ {
 		if inputDelay > 0 {
 			time.Sleep(time.Duration(inputDelay) * time.Microsecond)
 		}
