@@ -3,7 +3,6 @@ package kafkaprovider
 import (
 	"log"
 	"strings"
-	"util"
 
 	"github.com/Shopify/sarama"
 	"github.com/twinj/uuid"
@@ -41,8 +40,6 @@ func NewProvider(hosts string, retryWait int, clientId string) (*KafkaProvider, 
 	kc.hosts = hosts
 
 	kc.retryWaitTime = retryWait
-
-	util.Logln("Creating kafka handle", brokers)
 
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll

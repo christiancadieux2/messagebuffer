@@ -2,6 +2,7 @@ package messagebuffer
 
 import (
 	"bufio"
+	"clog"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -11,7 +12,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
 	"util"
 
 	"github.com/Shopify/sarama"
@@ -61,15 +61,19 @@ type MessageBufferHandle struct {
 	fileMux        sync.Mutex
 	outputDelay    int
 	context        context.Context
+	logger         *clog.Logger
 }
 
 // NewBuffer Create messagebuffer.
-func NewBuffer(ctx context.Context, provider Provider, configFilename string) (*MessageBufferHandle, error) {
+func NewBuffer(ctx context.Context, provider Provider, configFilename string,
+	logger *clog.Logger) (*MessageBufferHandle, error) {
 	kc := new(MessageBufferHandle)
 	kc.provider = provider
+	kc.logger = logger
 	bufferConfig, err := ReadConfig(configFilename)
+
 	if err != nil {
-		util.Logln("Cannot read config", err)
+		logger.Error("Cannot read config", err)
 	}
 
 	kc.bufferConfig = bufferConfig
@@ -113,7 +117,7 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 
 func (kc *MessageBufferHandle) processFiles() error {
 
-	util.Logln("processFiles: init")
+	kc.logger.Info("processFiles: init")
 	var fileList []string
 	var err error
 
@@ -133,11 +137,11 @@ func (kc *MessageBufferHandle) processFiles() error {
 			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
 
 		case <-kc.context.Done():
-			util.Logln("context.Done")
+			kc.logger.Info("context.Done")
 			break
 		}
 		if err != nil {
-			util.Logln("Cannot read", kc.bufferConfig.BufferDir, err)
+			kc.logger.Info("Cannot read", kc.bufferConfig.BufferDir, err)
 			continue
 		}
 		kc.processFilesList(fileList)
@@ -147,7 +151,7 @@ func (kc *MessageBufferHandle) processFiles() error {
 			kc.pruneOldFiles() // remove if too old
 		}
 	}
-	util.Logln("processFiles: all done!")
+	kc.logger.Info("processFiles: all done!")
 	return nil
 }
 
@@ -157,18 +161,18 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 	for _, name := range fileList {
 		err := kc.provider.OpenProducer()
 		if err != nil {
-			util.Logln("Cannot create NewSyncProducer", err)
+			kc.logger.Info("Cannot create NewSyncProducer", err)
 			return nil
 		} else {
-			util.Logln(" open producer")
+			kc.logger.Info(" open producer")
 		}
 		start := time.Now()
 		keepFile, rowCnt := kc.processOneFile(name)
-		util.Logln("    ", util.Speed(rowCnt, start, kc.provider.Name()))
+		kc.logger.Info("    ", util.Speed(rowCnt, start, kc.provider.Name()))
 
 		if !keepFile {
 			fullname := path.Join(kc.bufferConfig.BufferDir, name)
-			util.Logln(" removing", fullname)
+			kc.logger.Info(" removing", fullname)
 			os.Remove(fullname)
 		}
 		kc.provider.CloseProducer()
@@ -183,7 +187,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 	dirPath := kc.bufferConfig.BufferDir
 	fullname := path.Join(dirPath, name)
-	util.Logln("  processOneFile:", fullname)
+	kc.logger.Info("  processOneFile:", fullname)
 	file, err := os.Open(fullname)
 	fPosStart := getSeek(kc.bufferConfig.BufferDir, name)
 	if fPosStart > 0 {
@@ -192,7 +196,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 	}
 
 	if err != nil {
-		util.Logln("Cannot open", fullname)
+		kc.logger.Info("Cannot open", fullname)
 		return true, 0
 	}
 	defer file.Close()
@@ -216,7 +220,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 		ix := strings.Index(line, topicDelim)
 		if ix < 0 {
-			util.Logln("Invalid line", line)
+			kc.logger.Info("Invalid line", line)
 			continue
 		}
 		topic := string(line[0:ix])
@@ -229,15 +233,15 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 		_, err := kc.provider.SendMessage(topic, mess, key)
 		rowCnt++
 		if err == nil && !kc.fakeError {
-			//util.Logln("sending ", len(mess), "bytes to provider"+kc.provider.Name())
+			//kc.logger.Info("sending ", len(mess), "bytes to provider"+kc.provider.Name())
 			fPos += int64(len(line))
 
 		} else {
 			if kc.fakeError {
 				kc.fakeError = false
-				util.Logln("producer.SendMessage failed: fakeError")
+				kc.logger.Info("producer.SendMessage failed: fakeError")
 			} else {
-				util.Logln("producer.SendMessage failed", err)
+				kc.logger.Info("producer.SendMessage failed", err)
 			}
 			setSeek(dirPath, name, fPos)
 			kc.setDown()
@@ -245,14 +249,14 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			// wait less than PruneFrequency to avoid old messageFiles to pileup.
 			for time.Since(retryStart).Minutes() < float64(3/4*kc.bufferConfig.PruneFrequency) {
 				time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
-				util.Logln("retrying provider..")
+				kc.logger.Info("retrying provider..")
 				_, err = kc.provider.SendMessage(topic, mess, key) // return partition, offset
 				if err == nil {
 					kc.setUp()
 					setSeek(dirPath, name, 0)
 					break
 				} else {
-					util.Logln("producer.SendMessage failedAgain", err)
+					kc.logger.Info("producer.SendMessage failedAgain", err)
 				}
 			}
 			if kc.providerStatus == providerDown {
@@ -297,7 +301,7 @@ func (kc *MessageBufferHandle) pruneOldFiles() error {
 
 	files, err := ioutil.ReadDir(kc.bufferConfig.BufferDir)
 	if err != nil {
-		util.Logln("Cannot readDir", kc.bufferConfig.BufferDir)
+		kc.logger.Info("Cannot readDir", kc.bufferConfig.BufferDir)
 		return nil
 	}
 
@@ -314,7 +318,7 @@ func (kc *MessageBufferHandle) pruneOldFiles() error {
 					totalSize += fi.Size()
 				}
 			} else {
-				util.Logln("Cannot Stat", name)
+				kc.logger.Info("Cannot Stat", name)
 			}
 		}
 	}
@@ -356,7 +360,7 @@ func (kc *MessageBufferHandle) newFileName() string {
 	t1 := fmt.Sprintf("%d%02d%02d-%02d%02d%02d", t.Year(), t.Month(), t.Day(),
 		t.Hour(), t.Minute(), t.Second())
 	fn := path.Join(kc.bufferConfig.BufferDir, t1)
-	util.Logln("-  generating file", fn)
+	kc.logger.Info("-  generating file", fn)
 	return fn
 }
 
@@ -384,12 +388,12 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 	if kc.currentBufferFile != nil {
 		if kc.currentBufferFileSize > int64(kc.bufferConfig.FileMaxSize*1000000) { // too big, get a new one
 			needNew = true
-			util.Logln("neednew: too big")
+			kc.logger.Info("neednew: too big")
 		} else if kc.currentBufferFileSize > 0 {
 			age := time.Since(kc.currentBufferFileCreated).Seconds()
 
 			if age > float64(kc.bufferConfig.FileMaxTime) { // too old, get new one
-				util.Logln("neednew: age=", age, "max=", kc.bufferConfig.FileMaxTime)
+				kc.logger.Info("neednew: age=", age, "max=", kc.bufferConfig.FileMaxTime)
 				needNew = true
 			}
 		}
@@ -399,12 +403,12 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 
 	if needNew {
 		kc.closeRenameFile()
-		util.Logln("creating new file")
+		kc.logger.Info("creating new file")
 		filename := kc.newFileName()
 
 		file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
 		if err != nil {
-			util.Logln("Cannot open", filename)
+			kc.logger.Info("Cannot open", filename)
 			return nil, err
 		}
 		kc.currentBufferFile = file
@@ -445,11 +449,11 @@ func (kc *MessageBufferHandle) bufferMessage(topic string, message string, key s
 	kc.fileMux.Lock()
 	defer kc.fileMux.Unlock()
 	f, _ := kc.getCurrentFile()
-	//util.Logln("name=", kc.currentBufferFilename)
+	//kc.logger.Info("name=", kc.currentBufferFilename)
 	message2 := strings.Replace(message, "\n", "\\n", -1) // in case
 	m := topic + topicDelim + key + topicDelim + message2 + string(rowDelim)
 	if _, err := f.WriteString(m); err != nil {
-		util.Logln("Cannot write message ")
+		kc.logger.Info("Cannot write message ")
 		return err
 	}
 	kc.currentBufferFileSize += int64(len(m))

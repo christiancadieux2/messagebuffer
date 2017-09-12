@@ -1,6 +1,7 @@
 package main
 
 import (
+	"clog"
 	"context"
 	"fakeprovider"
 	"flag"
@@ -71,6 +72,8 @@ func main() {
 	var err error
 	var kprovider messagebuffer.Provider
 
+	logger := clog.MakeLogger(clog.Fields{"s": "messagebuffer"})
+
 	if fakeProvider {
 		kprovider, err = fakeprovider.NewProvider(khost, 0)
 	} else {
@@ -83,7 +86,7 @@ func main() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config) // one MB buffer
+	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger) // one MB buffer
 	if outputDelay > 0 {
 		buffer.SetOutputDelay(outputDelay)
 	}
