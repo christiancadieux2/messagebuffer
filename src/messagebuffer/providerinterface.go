@@ -6,12 +6,12 @@ package messagebuffer
 // NewProvider : create/configure/test new Producer
 // OpenProducer => SendMessage(s) => CloseProducer
 // GetRetryWaitTime: how long to wait between retries on Producer error.
-// SendMessage(): returns #mess, #errors. If async mode (kafka), errors can be
-//                from previous messages.
+// SendMessage(topic,message,key): returns #mess, error
+//     key can be blank
 
 type Provider interface {
 	OpenProducer() error
-	SendMessage(string, string) (int, error)
+	SendMessage(string, string, string) (int, error)
 	CloseProducer() error
 	GetRetryWaitTime() int
 	Name() string

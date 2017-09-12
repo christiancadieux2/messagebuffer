@@ -17,20 +17,22 @@ import (
 	"github.com/Shopify/sarama"
 )
 
+// status: Up | Down
 const providerUp = "U"
 const providerDown = "D"
 
-const readyPrefix = "P" // ready to be send to provider
-const seekPrefix = "S"
-const topicDelim = "\t"       // delimiter topic | message
-const rowDelim = '\n'         // buffer row delimiter
-const processFilesPeriod = 15 // wait seconds to process more files
 // State: live | buffering
 const stateLive = 1
 const stateBuffering = 2
 
+const readyPrefix = "P" // ready to be send to provider
+const seekPrefix = "S"
+const topicDelim = "\t" // delimiter topic | message
+const rowDelim = '\n'   // buffer row delimiter
+
 // MessageBufferHandle handles buffering to provider.
 //  ref: https://github.com/elodina/go_kafka_client
+//Headwaters: https://github.comcast.com/headwaters/headwaters-examples
 // a separate goroutine send the data to provider from the files
 // new files are started when old/big enough
 // old files are prunes when too many
@@ -220,7 +222,11 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 		topic := string(line[0:ix])
 		mess := string(line[ix+1:])
 
-		_, err := kc.provider.SendMessage(topic, mess)
+		ix2 := strings.Index(mess, topicDelim)
+		key := string(line[0:ix2])
+		mess = string(line[ix2+1:])
+
+		_, err := kc.provider.SendMessage(topic, mess, key)
 		rowCnt++
 		if err == nil && !kc.fakeError {
 			//util.Logln("sending ", len(mess), "bytes to provider"+kc.provider.Name())
@@ -240,7 +246,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			for time.Since(retryStart).Minutes() < float64(3/4*kc.bufferConfig.PruneFrequency) {
 				time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
 				util.Logln("retrying provider..")
-				_, err = kc.provider.SendMessage(topic, mess) // partition, offset
+				_, err = kc.provider.SendMessage(topic, mess, key) // return partition, offset
 				if err == nil {
 					kc.setUp()
 					setSeek(dirPath, name, 0)
@@ -419,29 +425,29 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 //   - Change the state to stateLive.
 // before returning.
 
-func (kc *MessageBufferHandle) WriteMessage(topic string, message string, _ string) error {
+func (kc *MessageBufferHandle) WriteMessage(topic string, message string, key string) error {
 	if kc.state == stateLive && !kc.alwaysUseBuffering {
-		_, err := kc.provider.SendMessage(topic, message) // partition, offset
+		_, err := kc.provider.SendMessage(topic, message, key) // partition, offset
 		if err == nil {
 			return nil
 		}
 		kc.state = stateBuffering
-		return kc.bufferMessage(topic, message)
+		return kc.bufferMessage(topic, message, key)
 
 	} else { // keep buffering after first provider error
-		return kc.bufferMessage(topic, message)
+		return kc.bufferMessage(topic, message, key)
 	}
 
 }
 
 //
-func (kc *MessageBufferHandle) bufferMessage(topic string, message string) error {
+func (kc *MessageBufferHandle) bufferMessage(topic string, message string, key string) error {
 	kc.fileMux.Lock()
 	defer kc.fileMux.Unlock()
 	f, _ := kc.getCurrentFile()
 	//util.Logln("name=", kc.currentBufferFilename)
 	message2 := strings.Replace(message, "\n", "\\n", -1) // in case
-	m := topic + topicDelim + message2 + string(rowDelim)
+	m := topic + topicDelim + key + topicDelim + message2 + string(rowDelim)
 	if _, err := f.WriteString(m); err != nil {
 		util.Logln("Cannot write message ")
 		return err

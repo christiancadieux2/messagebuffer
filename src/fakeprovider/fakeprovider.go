@@ -56,7 +56,7 @@ func (kc *FakeProvider) CloseProducer() error {
 }
 
 // SendMessage send a message and listen for errors
-func (kc *FakeProvider) SendMessage(topic string, mess string) (int, error) {
+func (kc *FakeProvider) SendMessage(topic string, mess string, _ string) (int, error) {
 
 	if kc.pace > 0 {
 		time.Sleep(time.Duration(kc.pace) * time.Microsecond)
