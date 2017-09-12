@@ -20,11 +20,14 @@ import (
 const providerUp = "U"
 const providerDown = "D"
 
-const processedPrefix = "P"
+const readyPrefix = "P" // ready to be send to provider
 const seekPrefix = "S"
 const topicDelim = "\t"       // delimiter topic | message
 const rowDelim = '\n'         // buffer row delimiter
 const processFilesPeriod = 15 // wait seconds to process more files
+// State: live | buffering
+const stateLive = 1
+const stateBuffering = 2
 
 // MessageBufferHandle handles buffering to provider.
 //  ref: https://github.com/elodina/go_kafka_client
@@ -34,23 +37,25 @@ const processFilesPeriod = 15 // wait seconds to process more files
 // may need to write to topic-specific  files and use multiple goroutine to keep-up
 
 type MessageBufferHandle struct {
-	state                    string
+	state                    int
+	providerStatus           string
 	fakeError                bool
 	currentBufferFile        *os.File
 	currentBufferFilename    string
 	currentBufferFileSize    int64 // size of current bufferfile
-	currentBufferFileCreated int64
+	currentBufferFileCreated time.Time
+	alwaysUseBuffering       bool // always buffer , even if provider is up
 
 	config         *sarama.Config
 	allDone        bool // no more files to process
 	maxBuffer      int32
-	providerDownTs int64
-	providerUpTs   int64
+	providerDownTs time.Time
+	providerUpTs   time.Time
 	provider       Provider
 	//messageBuffer *buffer.MessageBuffer
 	bufferConfig   Config
 	bufferSendChan chan int8
-	lastPruneTime  int64
+	lastPruneTime  time.Time
 	fileMux        sync.Mutex
 	outputDelay    int
 	context        context.Context
@@ -66,15 +71,20 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string) (*
 	}
 
 	kc.bufferConfig = bufferConfig
-
-	kc.state = providerUp
+	kc.state = stateLive
+	kc.providerStatus = providerUp
 	kc.allDone = false
+	kc.alwaysUseBuffering = false
 
 	kc.bufferSendChan = make(chan int8, 100)
 
 	go kc.processFiles()
 
 	return kc, nil
+}
+
+func (kc *MessageBufferHandle) AlwaysBuffer() {
+	kc.alwaysUseBuffering = true
 }
 
 // get list of files with 'processed' status
@@ -88,7 +98,7 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 
 	for _, f := range files {
 		name := f.Name()
-		if name[0:1] == processedPrefix {
+		if name[0:1] == readyPrefix {
 			results = append(results, name)
 		}
 	}
@@ -105,29 +115,24 @@ func (kc *MessageBufferHandle) processFiles() error {
 	var fileList []string
 	var err error
 
-	fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
-	// process existing files
-	if err == nil {
-		kc.processFilesList(fileList)
-	}
-
 	for {
 		if kc.allDone {
 			break
 		}
+		// get new list at fixed time interval or on bufferSendChan
 		select {
+		case <-kc.bufferSendChan:
+			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
+
 		case <-time.After(time.Second * time.Duration(kc.bufferConfig.FileMaxTime)):
+			if kc.state == stateLive {
+				break
+			}
 			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
 
 		case <-kc.context.Done():
 			util.Logln("context.Done")
 			break
-
-		case <-kc.bufferSendChan:
-			for len(kc.bufferSendChan) > 0 { // empty the channel
-				<-kc.bufferSendChan
-			}
-			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
 		}
 		if err != nil {
 			util.Logln("Cannot read", kc.bufferConfig.BufferDir, err)
@@ -135,8 +140,8 @@ func (kc *MessageBufferHandle) processFiles() error {
 		}
 		kc.processFilesList(fileList)
 
-		if (util.GetNow() - kc.lastPruneTime) > int64(60*kc.bufferConfig.PruneFrequency) {
-			kc.lastPruneTime = util.GetNow()
+		if time.Since(kc.lastPruneTime).Minutes() > float64(kc.bufferConfig.PruneFrequency) {
+			kc.lastPruneTime = time.Now()
 			kc.pruneOldFiles() // remove if too old
 		}
 	}
@@ -230,10 +235,9 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			}
 			setSeek(dirPath, name, fPos)
 			kc.setDown()
-			retryStart := util.GetNow()
+			retryStart := time.Now()
 			// wait less than PruneFrequency to avoid old messageFiles to pileup.
-			pf := int64(kc.bufferConfig.PruneFrequency * 60 * 3 / 4)
-			for util.GetNow()-retryStart < pf {
+			for time.Since(retryStart).Minutes() < float64(3/4*kc.bufferConfig.PruneFrequency) {
 				time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
 				util.Logln("retrying provider..")
 				_, err = kc.provider.SendMessage(topic, mess) // partition, offset
@@ -245,7 +249,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 					util.Logln("producer.SendMessage failedAgain", err)
 				}
 			}
-			if kc.state == providerDown {
+			if kc.providerStatus == providerDown {
 				keepFile = true // retry file later at seek value
 			}
 		}
@@ -295,7 +299,7 @@ func (kc *MessageBufferHandle) pruneOldFiles() error {
 	for i := len(files) - 1; i >= 0; i-- {
 		f := files[i]
 		name := f.Name()
-		if name[0:1] == processedPrefix {
+		if name[0:1] == readyPrefix {
 			fi, err := os.Stat(path.Join(kc.bufferConfig.BufferDir, name))
 			if err == nil {
 				if totalSize > int64(kc.bufferConfig.TotalSize)*1000000 {
@@ -318,13 +322,13 @@ func (kc *MessageBufferHandle) InjectError() {
 }
 
 func (kc *MessageBufferHandle) setDown() {
-	kc.state = providerDown
-	kc.providerDownTs = util.GetNow()
+	kc.providerStatus = providerDown
+	kc.providerDownTs = time.Now()
 }
 
 func (kc *MessageBufferHandle) setUp() {
-	kc.state = providerUp
-	kc.providerUpTs = util.GetNow()
+	kc.providerStatus = providerUp
+	kc.providerUpTs = time.Now()
 }
 
 // Close : close connection.
@@ -355,9 +359,11 @@ func (kc *MessageBufferHandle) closeRenameFile() error {
 		kc.currentBufferFile.Close()
 		ix := strings.LastIndex(kc.currentBufferFilename, "/")
 		newfile := path.Join(kc.currentBufferFilename[0:ix],
-			processedPrefix+kc.currentBufferFilename[ix+1:])
+			readyPrefix+kc.currentBufferFilename[ix+1:])
 		os.Rename(kc.currentBufferFilename, newfile)
-		kc.bufferSendChan <- 1
+		if len(kc.bufferSendChan) < 10 {
+			kc.bufferSendChan <- 1
+		}
 	}
 	return nil
 }
@@ -374,9 +380,9 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 			needNew = true
 			util.Logln("neednew: too big")
 		} else if kc.currentBufferFileSize > 0 {
-			age := util.GetNow() - kc.currentBufferFileCreated
+			age := time.Since(kc.currentBufferFileCreated).Seconds()
 
-			if age > int64(kc.bufferConfig.FileMaxTime) { // too old, get new one
+			if age > float64(kc.bufferConfig.FileMaxTime) { // too old, get new one
 				util.Logln("neednew: age=", age, "max=", kc.bufferConfig.FileMaxTime)
 				needNew = true
 			}
@@ -397,15 +403,35 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 		}
 		kc.currentBufferFile = file
 		kc.currentBufferFilename = filename
-		kc.currentBufferFileCreated = util.GetNow()
+		kc.currentBufferFileCreated = time.Now()
 		kc.currentBufferFileSize = 0
 	}
 	return kc.currentBufferFile, nil
 }
 
 // WriteMessage : public method. (topic, message, [key])
+// Add an automatic way to start buffering when provider throughput is too low.
+// Recovering from stateBuffering would require:
+//   - the provider is now UP for a minimum duration and the number of
+//      pending buffers is low.
+//   - Close and write the current buffer.
+//   - Wait for all pending buffers to be processed by other thread.
+//   - Change the state to stateLive.
+// before returning.
+
 func (kc *MessageBufferHandle) WriteMessage(topic string, message string, _ string) error {
-	return kc.bufferMessage(topic, message)
+	if kc.state == stateLive && !kc.alwaysUseBuffering {
+		_, err := kc.provider.SendMessage(topic, message) // partition, offset
+		if err == nil {
+			return nil
+		}
+		kc.state = stateBuffering
+		return kc.bufferMessage(topic, message)
+
+	} else { // keep buffering after first provider error
+		return kc.bufferMessage(topic, message)
+	}
+
 }
 
 //

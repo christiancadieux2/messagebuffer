@@ -4,7 +4,8 @@ This library is used to 'buffer' messages between a client and providers like ka
 
 Main features are:
 
- - Messages are received and saved immediately in local files (message buffers).
+ - Messages are sent 'live' to provider until the first error, where buffering starts.
+ - Buffering saved the messages in local files (message buffers).
 
  - Message files are limited in age and size so that the delay before messages are sent to the provider is small and constant.
 
@@ -16,7 +17,7 @@ Main features are:
 
  - In cases where the services need to be restarted or if kafka is down for too long, the current seek value of the message file being transmitted is saved in a corresponding 'S' file. This allows the service to resume where it was aborted and prevent repeating messages.
 
-   
+
  - When the total size of the message files reach a maximum , oldest files are removed to make space for the new ones.
 
  - Messages currently include a topic and message. newlines in the message are encoded ('\\\n').
@@ -42,8 +43,8 @@ I considered these different approaches:
 
   - using os.pipes: can use a file for buffering but both sides must be connected to the file and it's hard to trim from the beginning of the pipe when it gets too big.
 
-Using multiple small files seemed like a good solution, easy to prune, easy to seek in the file. writing is fast as long as the buffer files are local. If the files are 10seconds file for example, priming the buffer is fast. 
-It's also possible if needed to send messages to kafka directly until the first error and then switch to 'buffering'. 
+Using multiple small files seemed like a good solution, easy to prune, easy to seek in the file. writing is fast as long as the buffer files are local. If the files are 10seconds file for example, priming the buffer is fast.
+It's also possible if needed to send messages to kafka directly until the first error and then switch to 'buffering'.
 Most of the time, there should be very few message files present unless the provider cannot keep up with the client (spikes).
 
 Background:
@@ -80,7 +81,7 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 # Diagram
 
 ![Diagram](https://user-images.githubusercontent.com/10535265/30186693-d5669528-93e3-11e7-89b9-25bd269ac228.png)
-- 
+-
 
 
 
@@ -106,5 +107,3 @@ Send packet CA->Netherlands->CA      150,000,000 ns
 
 
 ```
-
-
