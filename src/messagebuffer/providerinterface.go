@@ -7,7 +7,7 @@ package messagebuffer
 // OpenProducer => SendMessage(s) => CloseProducer
 // GetRetryWaitTime: how long to wait between retries on Producer error.
 // SendMessage(topic,message,key): returns #mess, error
-//     key can be blank
+//     key can be blank, topic are pre-defined
 
 type Provider interface {
 	OpenProducer() error

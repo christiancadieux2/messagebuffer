@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"clog"
 	"context"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -24,15 +25,21 @@ const providerDown = "D"
 // State: live | buffering
 const stateLive = 1
 const stateBuffering = 2
+const blockingRetries = 10
 
 const readyPrefix = "P" // ready to be send to provider
 const seekPrefix = "S"
 const topicDelim = "\t" // delimiter topic | message
 const rowDelim = '\n'   // buffer row delimiter
 
+const ModeBlockOnError = 1  // retry on error, block client
+const ModeErrorOnError = 2  // return provider error to client
+const ModeBufferOnError = 3 // start buffering on error, return success
+const ModeAlwaysBuffer = 4  // always buffer first, goroutine handle provider
+
 // MessageBufferHandle handles buffering to provider.
 //  ref: https://github.com/elodina/go_kafka_client
-//Headwaters: https://github.comcast.com/headwaters/headwaters-examples
+// Headwaters: https://github.comcast.com/headwaters/headwaters-examples
 // a separate goroutine send the data to provider from the files
 // new files are started when old/big enough
 // old files are prunes when too many
@@ -43,10 +50,10 @@ type MessageBufferHandle struct {
 	providerStatus           string
 	fakeError                bool
 	currentBufferFile        *os.File
+	errorMode                int
 	currentBufferFilename    string
 	currentBufferFileSize    int64 // size of current bufferfile
 	currentBufferFileCreated time.Time
-	alwaysUseBuffering       bool // always buffer , even if provider is up
 
 	config         *sarama.Config
 	allDone        bool // no more files to process
@@ -66,11 +73,16 @@ type MessageBufferHandle struct {
 
 // NewBuffer Create messagebuffer.
 func NewBuffer(ctx context.Context, provider Provider, configFilename string,
-	logger *clog.Logger) (*MessageBufferHandle, error) {
+	logger *clog.Logger, errorMode int) (*MessageBufferHandle, error) {
 	kc := new(MessageBufferHandle)
 	kc.provider = provider
 	kc.logger = logger
 	bufferConfig, err := ReadConfig(configFilename)
+
+	if errorMode < ModeBlockOnError || errorMode > ModeErrorOnError {
+		panic("errorMode is invalid!")
+	}
+	kc.errorMode = errorMode
 
 	if err != nil {
 		logger.Error("Cannot read config", err)
@@ -80,17 +92,12 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	kc.state = stateLive
 	kc.providerStatus = providerUp
 	kc.allDone = false
-	kc.alwaysUseBuffering = false
 
 	kc.bufferSendChan = make(chan int8, 100)
 
 	go kc.processFiles()
 
 	return kc, nil
-}
-
-func (kc *MessageBufferHandle) AlwaysBuffer() {
-	kc.alwaysUseBuffering = true
 }
 
 // get list of files with 'processed' status
@@ -430,18 +437,46 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 // before returning.
 
 func (kc *MessageBufferHandle) WriteMessage(topic string, message string, key string) error {
-	if kc.state == stateLive && !kc.alwaysUseBuffering {
-		_, err := kc.provider.SendMessage(topic, message, key) // partition, offset
-		if err == nil {
-			return nil
-		}
-		kc.state = stateBuffering
-		return kc.bufferMessage(topic, message, key)
 
-	} else { // keep buffering after first provider error
-		return kc.bufferMessage(topic, message, key)
+	if kc.errorMode == ModeErrorOnError {
+		_, err := kc.provider.SendMessage(topic, message, key)
+		return err
 	}
 
+	if kc.errorMode == ModeBlockOnError {
+		retryStart := time.Now()
+		var err = errors.New("Provider timeout error")
+		totalWait := kc.provider.GetRetryWaitTime() * blockingRetries
+
+		for time.Since(retryStart).Seconds() < float64(totalWait) {
+			time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
+			kc.logger.Info("retrying provider..")
+			_, err1 := kc.provider.SendMessage(topic, message, key) // return partition, offset
+			if err1 == nil {
+				err = nil
+				break
+			} else {
+				kc.logger.Info("producer.SendMessage failedAgain", err)
+			}
+		}
+		return err
+	}
+
+	if kc.errorMode == ModeBufferOnError || kc.errorMode == ModeAlwaysBuffer {
+		if kc.state == stateLive && kc.errorMode != ModeAlwaysBuffer {
+			_, err := kc.provider.SendMessage(topic, message, key) // partition, offset
+			if err == nil {
+				return nil
+			}
+			kc.state = stateBuffering
+			return kc.bufferMessage(topic, message, key)
+
+		} else { // keep buffering after first provider error
+			return kc.bufferMessage(topic, message, key)
+		}
+	}
+
+	return nil
 }
 
 //

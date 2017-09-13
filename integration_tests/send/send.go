@@ -86,7 +86,8 @@ func main() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 
-	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger) // one MB buffer
+	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger,
+		messagebuffer.ModeErrorOnError) // one MB buffer
 	if outputDelay > 0 {
 		buffer.SetOutputDelay(outputDelay)
 	}
