@@ -66,10 +66,10 @@ func (kc *KafkaProvider) Name() string {
 	return "Kafka at " + kc.hosts
 }
 
-// GetRetryWaitTime informs the messagebuffer how long to wait when kafka is down
-// when kafka restarts for example, sarama will fail and succeed a few time before returning
-// consistent errors so it's best to stop trying. Also sarama has it's own maxretry.
-// seconds
+// GetRetryWaitTime informs the messagebuffer how long to wait when kafka is down.
+// When kafka restarts for example, sarama will fail and succeed a few time before returning
+// consistent errors so it's best to stop trying. Sarama has it's own max-retry so
+// there is no point in retrying immediately, sarame already did that...
 func (kc *KafkaProvider) GetRetryWaitTime() time.Duration {
 	return kc.retryWaitTime
 }
@@ -98,8 +98,8 @@ func (kc *KafkaProvider) CloseProducer() error {
 }
 
 // SendMessage send a message and listen for errors
-//strTime := strconv.Itoa(int(time.Now().Unix()))
-//Key:   sarama.StringEncoder(strTime), Partition: 6
+// strTime := strconv.Itoa(int(time.Now().Unix()))
+// Key:   sarama.StringEncoder(strTime), Partition: 6
 // Not setting a message key means that all messages will
 //  be distributed randomly over the different partitions.
 
@@ -122,7 +122,7 @@ func (kc *KafkaProvider) SendMessage(topic string, mess string, key string) (int
 
 	sent := 0
 	var lastError error
-
+	// in async mode, select on both channels
 	select {
 	case kc.producer.Input() <- msg:
 		sent++

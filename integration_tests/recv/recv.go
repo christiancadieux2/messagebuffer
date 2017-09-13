@@ -46,6 +46,7 @@ func main() {
 
 	// Count how many message processed
 	msgCount := 0
+	fmt.Println("Listening on", brokers)
 
 	// Get signnal for finish
 	doneCh := make(chan struct{})

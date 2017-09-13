@@ -117,6 +117,10 @@ func main() {
 	startMod := time.Now()
 	pid := os.Getpid()
 	var x int
+	mess0 := "This is a test message "
+	mess := strconv.Itoa(pid) + ": " + mess0 + mess0 + mess0 + mess0 + "1"
+	fmt.Println("Sending", iterations, "messages of ", len(mess), "bytes")
+	fmt.Println("Input Delay:", inputDelay, "microsecs", "\n...")
 
 	for x = 1; x <= iterations && !allDone; x++ {
 		if inputDelay > 0 {
@@ -127,14 +131,14 @@ func main() {
 			speed(1000, startMod, "")
 			startMod = time.Now()
 		}
-		mess0 := "This is a test message "
-		mess := strconv.Itoa(pid) + ": " + mess0 + mess0 + mess0 + mess0 + strconv.Itoa(x)
+
 		err := buffer.WriteMessage(topicS, mess, "key")
 
 		if err != nil {
 			fmt.Println(err)
 		}
 	}
+	x--
 	buffer.Close()
 	speed(x, start, "Total")
 
@@ -143,11 +147,11 @@ func main() {
 
 }
 
-// inject error: wget localhost:8080/injectError
+// /injectError : Inject Provider error.")
+// /inputDelay/<microsecs> : delay when writing to buffer.
+// /optputDelay/<microsecs> : delay when writing to kafka
 func server(buffer *messagebuffer.MessageBufferHandle) {
-	fmt.Println("/injectError : Inject Provider error.")
-	fmt.Println("/inputDelay/<microsecs> : delay when writing to buffer.")
-	fmt.Println("/optputDelay/<microsecs> : delay when writing to kafka.")
+
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 	r.GET("/injectError", func(c *gin.Context) {
@@ -180,8 +184,11 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 }
 
 func speed(count int, start time.Time, prefix string) {
-	lapse := time.Since(start).Seconds()
-	rate := float64(count) / lapse
-	fmt.Println(prefix, "messages sent:", count, ", duration:", lapse,
-		", speed:", rate, "mess/sec")
+
+	lapse2 := time.Since(start)
+
+	rate := float64(count) / lapse2.Seconds()
+	fmt.Printf("%s message sent: %d, duration: %v , rate: %.3f mess/s \n",
+		prefix, count, lapse2, rate)
+
 }

@@ -96,7 +96,9 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 
 	kc.bufferSendChan = make(chan int8, 100)
 
-	go kc.processFiles()
+	if kc.errorMode == ModeBufferOnError || kc.errorMode == ModeAlwaysBuffer {
+		go kc.processBufferFiles()
+	}
 
 	return kc, nil
 }
@@ -123,9 +125,8 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 // runs in separate goroutine
 // run every FileMaxTime seconds or when a new file is generated
 
-func (kc *MessageBufferHandle) processFiles() error {
+func (kc *MessageBufferHandle) processBufferFiles() error {
 
-	kc.logger.Info("processFiles: init")
 	var fileList []string
 	var err error
 

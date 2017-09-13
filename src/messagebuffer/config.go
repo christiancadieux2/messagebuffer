@@ -41,6 +41,6 @@ func ReadConfig(cname string) (Config, error) {
 		util.Logln("error decoding ", err)
 		return config, err
 	}
-	util.Logln("config", config)
+
 	return config, nil
 }
