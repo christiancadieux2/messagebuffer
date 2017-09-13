@@ -77,6 +77,7 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	kc := new(MessageBufferHandle)
 	kc.provider = provider
 	kc.logger = logger
+	kc.context = ctx
 	bufferConfig, err := ReadConfig(configFilename)
 
 	if errorMode < ModeBlockOnError || errorMode > ModeErrorOnError {
@@ -255,7 +256,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			retryStart := time.Now()
 			// wait less than PruneFrequency to avoid old messageFiles to pileup.
 			for time.Since(retryStart).Minutes() < float64(3/4*kc.bufferConfig.PruneFrequency) {
-				time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
+				time.Sleep(kc.provider.GetRetryWaitTime())
 				kc.logger.Info("retrying provider..")
 				_, err = kc.provider.SendMessage(topic, mess, key) // return partition, offset
 				if err == nil {
@@ -352,8 +353,8 @@ func (kc *MessageBufferHandle) setUp() {
 func (kc *MessageBufferHandle) Close() error {
 	kc.closeRenameFile()
 	kc.allDone = true
+	kc.provider.CloseProducer()
 	return nil
-	//return kc.provider.CloseProducer()
 
 }
 
@@ -446,10 +447,9 @@ func (kc *MessageBufferHandle) WriteMessage(topic string, message string, key st
 	if kc.errorMode == ModeBlockOnError {
 		retryStart := time.Now()
 		var err = errors.New("Provider timeout error")
-		totalWait := kc.provider.GetRetryWaitTime() * blockingRetries
 
-		for time.Since(retryStart).Seconds() < float64(totalWait) {
-			time.Sleep(time.Duration(kc.provider.GetRetryWaitTime()) * time.Second)
+		for time.Since(retryStart) < kc.provider.GetRetryWaitTime()*blockingRetries {
+			time.Sleep(kc.provider.GetRetryWaitTime())
 			kc.logger.Info("retrying provider..")
 			_, err1 := kc.provider.SendMessage(topic, message, key) // return partition, offset
 			if err1 == nil {

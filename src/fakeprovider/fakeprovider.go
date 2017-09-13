@@ -15,13 +15,13 @@ type FakeProvider struct {
 	brokers       []string
 	config        *sarama.Config
 	producer      sarama.AsyncProducer
-	retryWaitTime int
+	retryWaitTime time.Duration
 
 	pace int // microsec
 }
 
 // NewProvider creates a kafkaProvider
-func NewProvider(hosts string, retry int) (*FakeProvider, error) {
+func NewProvider(hosts string, retry time.Duration) (*FakeProvider, error) {
 
 	kc := new(FakeProvider)
 
@@ -41,8 +41,8 @@ func (kc *FakeProvider) Name() string {
 	return "Fake Provider"
 }
 
-func (kc *FakeProvider) GetRetryWaitTime() int {
-	return 1
+func (kc *FakeProvider) GetRetryWaitTime() time.Duration {
+	return 1 * time.Second
 }
 
 //OpenProducer creates an async producer.

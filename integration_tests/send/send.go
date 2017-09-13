@@ -52,14 +52,14 @@ func main() {
 	flag.Parse()
 	if help {
 		fmt.Println(`
-         send -i <iter> -t <topic> -c <config> -w <wait> -p <pace> -f
-             -i <iterations>: iterations (10)
-						 -f : use fake provider
-             -t <topic>  : Topic (test)
-						 -l <len>    : message length
-						 -c <config> : Config file for messagebuffer
-						 -w <micros>   : Input Delay (1000 microsecs)
-						 -p <micro>  : Output Delay (1000 microsecs)
+  send -i <iter> -t <topic> -c <config> -w <wait> -p <pace> -f
+     -i <iterations>: iterations (10)
+     -f : use fake provider
+     -t <topic>  : Topic (test)
+     -l <len>    : message length
+     -c <config> : Config file for messagebuffer
+     -w <micro>  : Input Delay (1000 microsecs)
+     -p <micro>  : Output Delay (1000 microsecs)
          `)
 		os.Exit(0)
 	}
@@ -75,9 +75,9 @@ func main() {
 	logger := clog.MakeLogger(clog.Fields{"s": "messagebuffer"})
 
 	if fakeProvider {
-		kprovider, err = fakeprovider.NewProvider(khost, 0)
+		kprovider, err = fakeprovider.NewProvider(khost, 1*time.Second)
 	} else {
-		kprovider, err = kafkaprovider.NewProvider(khost, 10, "")
+		kprovider, err = kafkaprovider.NewProvider(khost, 15*time.Second, "")
 	}
 
 	if err != nil {
@@ -180,8 +180,8 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 }
 
 func speed(count int, start time.Time, prefix string) {
-	lapse := time.Since(start)
-	rate := int64(count) / int64(lapse/time.Second)
+	lapse := time.Since(start).Seconds()
+	rate := float64(count) / lapse
 	fmt.Println(prefix, "messages sent:", count, ", duration:", lapse,
 		", speed:", rate, "mess/sec")
 }

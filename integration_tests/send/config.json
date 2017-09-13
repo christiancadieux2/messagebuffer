@@ -4,5 +4,5 @@
  "total_size" : 10,
  "buffer_dir" : "/tmp/kafka",
  "prune_frequency" : 10,
- "kafka_client_id" : 
+ "kafka_client_id" : ""
 }

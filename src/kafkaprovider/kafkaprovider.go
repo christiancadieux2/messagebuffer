@@ -3,6 +3,7 @@ package kafkaprovider
 import (
 	"log"
 	"strings"
+	"time"
 
 	"github.com/Shopify/sarama"
 	"github.com/twinj/uuid"
@@ -21,12 +22,12 @@ type KafkaProvider struct {
 	brokers       []string
 	config        *sarama.Config
 	producer      sarama.AsyncProducer
-	retryWaitTime int
+	retryWaitTime time.Duration
 	clientID      string
 }
 
 // NewProvider creates a kafkaProvider
-func NewProvider(hosts string, retryWait int, clientId string) (*KafkaProvider, error) {
+func NewProvider(hosts string, retryWait time.Duration, clientId string) (*KafkaProvider, error) {
 
 	kc := new(KafkaProvider)
 
@@ -68,7 +69,8 @@ func (kc *KafkaProvider) Name() string {
 // GetRetryWaitTime informs the messagebuffer how long to wait when kafka is down
 // when kafka restarts for example, sarama will fail and succeed a few time before returning
 // consistent errors so it's best to stop trying. Also sarama has it's own maxretry.
-func (kc *KafkaProvider) GetRetryWaitTime() int {
+// seconds
+func (kc *KafkaProvider) GetRetryWaitTime() time.Duration {
 	return kc.retryWaitTime
 }
 
@@ -87,7 +89,12 @@ func (kc *KafkaProvider) OpenProducer() error {
 
 // CloseProducer close the producer.
 func (kc *KafkaProvider) CloseProducer() error {
-	return kc.producer.Close()
+	if kc.producer != nil {
+		return kc.producer.Close()
+	} else {
+		return nil
+	}
+
 }
 
 // SendMessage send a message and listen for errors
@@ -98,6 +105,9 @@ func (kc *KafkaProvider) CloseProducer() error {
 
 func (kc *KafkaProvider) SendMessage(topic string, mess string, key string) (int, error) {
 
+	if kc.producer == nil {
+		kc.OpenProducer()
+	}
 	msg := &sarama.ProducerMessage{
 		Topic: topic,
 		Value: sarama.StringEncoder(mess),

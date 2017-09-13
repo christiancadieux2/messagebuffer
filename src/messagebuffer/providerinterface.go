@@ -1,5 +1,7 @@
 package messagebuffer
 
+import "time"
+
 // Providers are used by messagebuffer to talk to 'Producers' like kafka
 // multiple threads can SendMessage using same Provider if producer support it.
 // could add provider.mutex to SendMessage when Producer is not thread-safe
@@ -13,6 +15,6 @@ type Provider interface {
 	OpenProducer() error
 	SendMessage(string, string, string) (int, error)
 	CloseProducer() error
-	GetRetryWaitTime() int
+	GetRetryWaitTime() time.Duration
 	Name() string
 }
