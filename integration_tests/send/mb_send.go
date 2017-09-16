@@ -184,6 +184,11 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		c.String(http.StatusOK, fmt.Sprint(currentInRate))
 	})
 
+	r.GET("/outspeed", func(c *gin.Context) {
+		fmt.Println("outspeed=")
+		c.String(http.StatusOK, fmt.Sprint(currentInRate))
+	})
+
 	r.Run(":" + webPort)
 }
 
