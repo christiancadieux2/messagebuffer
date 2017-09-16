@@ -1,0 +1,2 @@
+go install integration_tests/send/mb_send.go 
+go run integration_tests/send/mb_send.go  -i 10000000000

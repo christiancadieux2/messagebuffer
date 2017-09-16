@@ -1,0 +1,130 @@
+
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>jQuery UI Slider - Custom handle</title>
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.12.1/themes/base/jquery-ui.css">
+  <style>
+#custom-handle {
+    width: 3em;
+    height: 1.6em;
+    top: 50%;
+    margin-top: -.8em;
+    text-align: center;
+    line-height: 1.6em;
+  }
+  </style>
+  <script src="https://code.jquery.com/jquery-1.12.4.js"></script>
+  <script src="https://code.jquery.com/ui/1.12.1/jquery-ui.js"></script>
+  <script src="justgage/raphael-2.1.4.min.js"></script>
+  <script src="justgage/justgage.js"></script>
+
+  <script>
+  $( function() {
+
+    var handle1 = $( "#out-handle" );
+    var handle2 = $( "#in-handle" );
+    var handle3 = $( "#buffer-handle" );
+
+    $( "#slider1" ).slider({
+      max: 100,
+      value: 1,
+      min: 1,
+      create: function() {
+        handle1.text( $( this ).slider( "value" ) );
+      },
+      slide: function( event, ui ) {
+        handle1.text( ui.value );
+        $.get( "http://localhost:8080/inputDelay/" + ui.value , function(data) {
+          
+       });
+        
+      }
+    });
+    $( "#slider2" ).slider({
+      max: 100,
+      value: 1,
+      create: function() {
+        handle2.text( $( this ).slider( "value" ) );
+      },
+      slide: function( event, ui ) {
+        handle2.text( ui.value );
+      }
+    });
+
+    $( "#slider3" ).slider({
+      max: 1000,
+      value: 0,
+      create: function() {
+        handle3.text( $( this ).slider( "value" ) );
+      },
+      slide: function( event, ui ) {
+        handle3.text( ui.value );
+      }
+    });
+
+  var g_in = new JustGage({
+    id: "gauge1",
+    value: 10,
+    min: 0,
+    max: 10000,
+    title: "InSpeed KMess/sec"
+  });
+
+  var g_out = new JustGage({
+    id: "gauge2",
+    value: 10,
+    min: 0,
+    max: 200,
+    title: "OutSpeed KMess/sec"
+  });
+
+  function refresh() {
+    $.get( "http://localhost:8080/inspeed", function(data) {
+      g_in.refresh(data);
+    });
+  }
+        
+
+  setInterval(function(){ refresh(); }, 2000);
+  
+
+  });
+
+  </script>
+</head>
+
+<body>
+
+<h1> MessageBuffer</h1>
+
+<table border=0 cellpadding=10 cellspacing=0 width=100%>
+<tr><td bgcolor=#E0F4F4><b>Incoming Delay (milliseconds):</b>
+<td>&nbsp;</td>
+    <td bgcolor=#E0F4F4> <b>Outgoing/Kafka Delay (milliseconds):</b>
+<tr><td bgcolor=#E0F4F4><center>
+  <div style='width:400px' id="slider1">
+    <div id="out-handle" class="ui-slider-handle"></div>
+  </div>
+<td></td>
+<td  bgcolor=#E0F4F4><center>
+  <div style='width:400px' id="slider2">
+    <div id="in-handle" class="ui-slider-handle"></div>
+  </div>
+
+
+
+<tr><td><div id=gauge1 style="width:300px; height:300px"></div></td>
+<td></td>
+<td><div id=gauge2 style="width:300px; height:300px"></div></td>
+
+<tr><td colspan=3 bgcolor=#E0F4F4><b>#Buffers</td>
+<tr><td colspan=3><div style='width:800px' id="slider3">
+    <div id="buffer-handle" class="ui-slider-handle"></div>
+</div>
+
+
+</table>
+</body>
+</html>

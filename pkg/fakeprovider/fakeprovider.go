@@ -1,7 +1,7 @@
 package fakeprovider
 
 import (
-	"christiancadieux2/messagebuffer/util"
+	"christiancadieux2/messagebuffer/pkg/util"
 	"time"
 
 	"github.com/Shopify/sarama"
@@ -41,6 +41,7 @@ func (kc *FakeProvider) Name() string {
 	return "Fake Provider"
 }
 
+//GetRetryWaitTime wait time.
 func (kc *FakeProvider) GetRetryWaitTime() time.Duration {
 	return 1 * time.Second
 }

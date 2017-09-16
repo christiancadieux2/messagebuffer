@@ -2,7 +2,7 @@ package messagebuffer
 
 import (
 	"bufio"
-	"christiancadieux2/messagebuffer/util"
+	"christiancadieux2/messagebuffer/pkg/util"
 	"context"
 	"errors"
 	"fmt"

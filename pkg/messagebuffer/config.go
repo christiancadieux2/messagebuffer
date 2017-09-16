@@ -1,7 +1,7 @@
 package messagebuffer
 
 import (
-	"christiancadieux2/messagebuffer/util"
+	"christiancadieux2/messagebuffer/pkg/util"
 	"encoding/json"
 	"os"
 )

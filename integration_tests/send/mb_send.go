@@ -3,7 +3,7 @@ package main
 import (
 	"christiancadieux2/messagebuffer/pkg/kafkaprovider"
 	"christiancadieux2/messagebuffer/pkg/messagebuffer"
-	"christiancadieux2/messagebuffer/util"
+	"christiancadieux2/messagebuffer/pkg/util"
 	"context"
 
 	"flag"
@@ -26,6 +26,7 @@ var CONFIG = "/opt/comcast/messagebuffer/integration_tests/send/config.json"
 var defaultTopic = "raw.viper.sumatra.collector.LogEvent"
 var inputDelay int
 var webPort = "8080"
+var currentInRate int64
 
 func main() {
 
@@ -115,14 +116,14 @@ func main() {
 	mess := strconv.Itoa(pid) + ": " + mess0 + mess0 + mess0 + mess0 + "1"
 	fmt.Println("Sending", iterations, "messages of ", len(mess), "bytes")
 	fmt.Println("Input Delay:", inputDelay, "microsecs", "\n...")
-
+	var lastx int
 	for x = 1; x <= iterations && !allDone; x++ {
 		if inputDelay > 0 {
 			time.Sleep(time.Duration(inputDelay) * time.Microsecond)
 		}
-
-		if x%1000 == 0 {
-			speed(1000, startMod, "")
+		if time.Since(startMod) > time.Duration(1*time.Second) {
+			speed(x-lastx, startMod, "")
+			lastx = x
 			startMod = time.Now()
 		}
 
@@ -148,6 +149,8 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
+	r.Static("/html", "/home/cc88871/go/src/christiancadieux2/messagebuffer/html")
+
 	r.GET("/injectError", func(c *gin.Context) {
 		fmt.Println("Inject Error")
 		buffer.InjectError()
@@ -156,10 +159,12 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 	r.GET("/inputDelay/:delay", func(c *gin.Context) {
 		delay := c.Param("delay")
 		delayMicros, err := strconv.Atoi(delay)
+		delayMicros = delayMicros * 1000
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid input delay (microsec)="+delay)
 		} else {
 			inputDelay = delayMicros
+			fmt.Println("inputdelay_microsec=", delayMicros)
 			c.String(http.StatusOK, "OK")
 		}
 	})
@@ -174,6 +179,11 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		}
 	})
 
+	r.GET("/inspeed", func(c *gin.Context) {
+		fmt.Println("inspeed=", currentInRate, "indelay=", inputDelay)
+		c.String(http.StatusOK, fmt.Sprint(currentInRate))
+	})
+
 	r.Run(":" + webPort)
 }
 
@@ -182,6 +192,7 @@ func speed(count int, start time.Time, prefix string) {
 	lapse2 := time.Since(start)
 
 	rate := float64(count) / lapse2.Seconds()
+	currentInRate = int64(rate)
 	fmt.Printf("%s message sent: %d, duration: %v , rate: %.3f mess/s \n",
 		prefix, count, lapse2, rate)
 
