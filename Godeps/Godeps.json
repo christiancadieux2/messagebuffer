@@ -1,0 +1,130 @@
+{
+	"ImportPath": "christiancadieux2/messagebuffer",
+	"GoVersion": "go1.9",
+	"GodepVersion": "v79",
+	"Packages": [
+		"./..."
+	],
+	"Deps": [
+		{
+			"ImportPath": "comcast-viper/clog",
+			"Rev": "3c202663e49dd0c21328e25c0f29ce7936ea8d96"
+		},
+		{
+			"ImportPath": "github.com/Shopify/sarama",
+			"Comment": "v1.12.0-33-gbe3a4e3",
+			"Rev": "be3a4e355292a75fcc566f76de8bcf28befd4825"
+		},
+		{
+			"ImportPath": "github.com/confluentinc/confluent-kafka-go/kafka",
+			"Comment": "v0.11.0-18-g6167593",
+			"Rev": "61675930cb6f5267eb1a10136d0fc05b12fb5f94"
+		},
+		{
+			"ImportPath": "github.com/davecgh/go-spew/spew",
+			"Comment": "v1.1.0-7-ga476722",
+			"Rev": "a476722483882dd40b8111f0eb64e1d7f43f56e4"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-resiliency/breaker",
+			"Comment": "v1.0.0-6-gb1fe83b",
+			"Rev": "b1fe83b5b03f624450823b751b662259ffc6af70"
+		},
+		{
+			"ImportPath": "github.com/eapache/go-xerial-snappy",
+			"Rev": "bb955e01b9346ac19dc29eb16586c90ded99a98c"
+		},
+		{
+			"ImportPath": "github.com/eapache/queue",
+			"Comment": "v1.0.2-7-g44cc805",
+			"Rev": "44cc805cf13205b55f69e14bcb69867d1ae92f98"
+		},
+		{
+			"ImportPath": "github.com/gin-contrib/sse",
+			"Rev": "22d885f9ecc78bf4ee5d72b937e4bbcdc58e8cae"
+		},
+		{
+			"ImportPath": "github.com/gin-gonic/gin",
+			"Comment": "v1.2-112-g5afc5b1",
+			"Rev": "5afc5b19730118c9b8324fe9dd995d44ec65c81a"
+		},
+		{
+			"ImportPath": "github.com/gin-gonic/gin/binding",
+			"Comment": "v1.2-112-g5afc5b1",
+			"Rev": "5afc5b19730118c9b8324fe9dd995d44ec65c81a"
+		},
+		{
+			"ImportPath": "github.com/gin-gonic/gin/json",
+			"Comment": "v1.2-112-g5afc5b1",
+			"Rev": "5afc5b19730118c9b8324fe9dd995d44ec65c81a"
+		},
+		{
+			"ImportPath": "github.com/gin-gonic/gin/render",
+			"Comment": "v1.2-112-g5afc5b1",
+			"Rev": "5afc5b19730118c9b8324fe9dd995d44ec65c81a"
+		},
+		{
+			"ImportPath": "github.com/golang/protobuf/proto",
+			"Rev": "11b8df160996e00fd4b55cbaafb3d84ec6d50fa8"
+		},
+		{
+			"ImportPath": "github.com/golang/snappy",
+			"Rev": "553a641470496b2327abcac10b36396bd98e45c9"
+		},
+		{
+			"ImportPath": "github.com/json-iterator/go",
+			"Comment": "1.0.1",
+			"Rev": "92772579dd0d6dbbca395ebc5db8b559ebcb1798"
+		},
+		{
+			"ImportPath": "github.com/mattn/go-isatty",
+			"Comment": "v0.0.2",
+			"Rev": "fc9e8d8ef48496124e79ae0df75490096eccf6fe"
+		},
+		{
+			"ImportPath": "github.com/pborman/uuid",
+			"Comment": "v1.1",
+			"Rev": "e790cca94e6cc75c7064b1332e63811d4aae1a53"
+		},
+		{
+			"ImportPath": "github.com/pierrec/lz4",
+			"Comment": "v1.0-10-g08c2793",
+			"Rev": "08c27939df1bd95e881e2c2367a749964ad1fceb"
+		},
+		{
+			"ImportPath": "github.com/pierrec/xxHash/xxHash32",
+			"Comment": "v0.1-11-ga0006b1",
+			"Rev": "a0006b13c722f7f12368c00a3d3c2ae8a999a0c6"
+		},
+		{
+			"ImportPath": "github.com/rcrowley/go-metrics",
+			"Rev": "1f30fe9094a513ce4c700b9a54458bbb0c96996c"
+		},
+		{
+			"ImportPath": "github.com/twinj/uuid",
+			"Comment": "v0.1.0",
+			"Rev": "7bbe408d339787c56ec15568c947c0959db1b275"
+		},
+		{
+			"ImportPath": "github.com/ugorji/go/codec",
+			"Rev": "8c0409fcbb70099c748d71f714529204975f6c3f"
+		},
+		{
+			"ImportPath": "golang.org/x/net/context",
+			"Rev": "8351a756f30f1297fe94bbf4b767ec589c6ea6d0"
+		},
+		{
+			"ImportPath": "golang.org/x/sys/unix",
+			"Rev": "062cd7e4e68206d8bab9b18396626e855c992658"
+		},
+		{
+			"ImportPath": "gopkg.in/go-playground/validator.v8",
+			"Comment": "v8.18.2",
+			"Rev": "5f1438d3fca68893a817e4a66806cea46a9e4ebf"
+		},
+		{
+			"ImportPath": "gopkg.in/yaml.v2",
+			"Rev": "eb3733d160e74a9c7e442f435eb3bea458e1d19f"
+		}
+	]
+}

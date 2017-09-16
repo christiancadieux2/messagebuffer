@@ -1,0 +1,12 @@
+[
+    {
+        "SourcePath": "git@gitlab.ula.lab.xcal.tv:rio/pborman-uuid.git",
+        "Root": "github.com/pborman/uuid",
+        "Revision": "cccd189d45f7ac3368a0d127efb7f4d08ae0b655"
+    },
+    {
+        "SourcePath": "https://go.googlesource.com/net",
+        "Root": "golang.org/x/net",
+        "Revision": "a8c61998a557a37435f719980da368469c10bfed"
+    }
+]

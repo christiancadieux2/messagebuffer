@@ -2,9 +2,10 @@ package main
 
 import (
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"os"
 	"time"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 var start int64

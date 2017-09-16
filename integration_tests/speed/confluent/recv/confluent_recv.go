@@ -7,11 +7,12 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"os"
 	"os/signal"
 	"strings"
 	"syscall"
+
+	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
 func main() {

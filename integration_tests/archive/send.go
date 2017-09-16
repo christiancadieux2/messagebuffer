@@ -3,9 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/Shopify/sarama"
 	"os"
 	"strconv"
+
+	"github.com/Shopify/sarama"
 )
 
 func main() {
