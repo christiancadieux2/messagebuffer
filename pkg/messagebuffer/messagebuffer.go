@@ -224,7 +224,7 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 		if fileList != nil {
 			err = kc.processFilesList(fileList)
 			if err != nil {
-				kc.logger.Info("processFilesList failed, sleep and retry..")
+				kc.logger.Info("processFilesList failed,sleeping..")
 				time.Sleep(kc.provider.GetRetryWaitTime())
 			}
 		}
