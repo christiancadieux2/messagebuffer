@@ -56,17 +56,17 @@
 
   var g_in = new JustGage({
     id: "gauge1",
-    value: 10,
+    value: 0,
     min: 0,
-    max: 10000,
+    max: 5000,
     title: "InSpeed Mess/sec"
   });
 
   var g_out = new JustGage({
     id: "gauge2",
-    value: 10,
+    value: 0,
     min: 0,
-    max: 10000,
+    max: 5000,
     title: "OutSpeed Mess/sec"
   });
 
@@ -84,8 +84,9 @@
     });
   }
 
-
-  setInterval(function(){ refresh(); }, 2000);
+  $.get( "http://localhost:8080/inputDelay/1");
+  $.get( "http://localhost:8080/outputDelay/1");
+  setInterval(function(){ refresh(); }, 1000);
 
 
   });
@@ -129,7 +130,7 @@
 <td></td>
 <td><div id=gauge2 style="width:300px; height:300px"></div></td>
 
-<tr><td colspan=3 bgcolor=#F0F0C0><b>#Buffers</td>
+<tr><td colspan=3 bgcolor=#F0F0C0><b>Buffers</td>
 <tr><td colspan=3><br><div style='width:800px' id="buffer_count"></div>
 
 </div>

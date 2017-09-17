@@ -22,7 +22,7 @@ import (
 )
 
 // CONFIG : config
-var CONFIG = "/opt/comcast/messagebuffer/integration_tests/send/config.json"
+var CONFIG = "/home/cc88871/go/src/christiancadieux2/messagebuffer/integration_tests/send/config.json"
 
 var defaultTopic = "raw.viper.sumatra.collector.LogEvent"
 var inputDelay int
@@ -37,6 +37,7 @@ func main() {
 	var config string
 
 	var help bool
+
 	var outputDelay int
 	var messageLen int
 	flag.IntVar(&iterations, "i", 100, "Iterations")
@@ -60,6 +61,7 @@ func main() {
      -c <config> : Config file for messagebuffer
      -w <micro>  : Input Delay (1000 microsecs)
      -p <micro>  : Output Delay (1000 microsecs)
+
          `)
 		os.Exit(0)
 	}
@@ -81,9 +83,10 @@ func main() {
 		panic(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
+	var mode = messagebuffer.ModeAlwaysBuffer
 
-	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger,
-		messagebuffer.ModeAlwaysBuffer) // one MB buffer
+	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger, mode)
+
 	if outputDelay > 0 {
 		buffer.SetOutputDelay(outputDelay)
 	}

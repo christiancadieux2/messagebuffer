@@ -1,7 +1,7 @@
 {
- "file_max_time" : 5,
- "file_max_size" : 1,
- "total_size" : 10,
+ "file_max_time" : 10,
+ "file_max_size" : 2,
+ "total_size" : 100,
  "buffer_dir" : "/tmp/kafka",
  "prune_frequency" : 30,
  "kafka_client_id" : ""

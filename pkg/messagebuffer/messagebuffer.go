@@ -148,7 +148,7 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 
 	var fileList []string
 	var err error
-
+	lastMess := time.Now()
 	fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
 	kc.processFilesList(fileList)
 	for {
@@ -158,8 +158,12 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 		// get new list at fixed time interval or on bufferSendChan
 		select {
 		case <-kc.bufferSendChan:
-			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
-
+			if time.Since(lastMess) > 1 {
+				fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
+				lastMess = time.Now()
+			} else {
+				fileList = nil
+			}
 		case <-time.After(time.Second * time.Duration(kc.bufferConfig.FileMaxTime)):
 			if kc.state == stateLive {
 				fmt.Println("STATELIVE => BREAK")
@@ -175,7 +179,9 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 			kc.logger.Info("Cannot read", kc.bufferConfig.BufferDir, err)
 			continue
 		}
-		kc.processFilesList(fileList)
+		if fileList != nil {
+			kc.processFilesList(fileList)
+		}
 
 		if time.Since(kc.lastPruneTime).Minutes() > float64(kc.bufferConfig.PruneFrequency) {
 			kc.lastPruneTime = time.Now()
@@ -428,14 +434,15 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 	needNew := false
 
 	if kc.currentBufferFile != nil {
+
 		if kc.currentBufferFileSize > int64(kc.bufferConfig.FileMaxSize*1000000) { // too big, get a new one
 			needNew = true
-			kc.logger.Info("neednew: too big")
+			kc.logger.Info("newfile: too big")
 		} else if kc.currentBufferFileSize > 0 {
 			age := time.Since(kc.currentBufferFileCreated).Seconds()
 
 			if age > float64(kc.bufferConfig.FileMaxTime) { // too old, get new one
-				kc.logger.Info("neednew: age=", age, "max=", kc.bufferConfig.FileMaxTime)
+				kc.logger.Info("newfile: age:", age, "> max:", kc.bufferConfig.FileMaxTime)
 				needNew = true
 			}
 		}
