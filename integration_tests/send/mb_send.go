@@ -64,10 +64,14 @@ func main() {
      -w <micro>  : Input Delay (1000 microsecs)
      -p <micro>  : Output Delay (1000 microsecs)
 
+		  go run integration_tests/send/mb_send.go  -i 0 -B
+
          `)
 		os.Exit(0)
 	}
-
+	if iterations == 0 {
+		iterations = 10000000000
+	}
 	khost := os.Getenv("KHOST")
 	if khost == "" {
 		khost = "localhost"
