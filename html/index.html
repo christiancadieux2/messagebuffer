@@ -44,16 +44,30 @@
 
     $( "#slider2" ).slider({
       max: 20,
-      value: 1, min:1,
+      value: 1, min:0,
       create: function() {
         handle2.text( $( this ).slider( "value" ) );
       },
       slide: function( event, ui ) {
-        handle2.text( ui.value );
+        if (ui.value == "0") {
+          handle2.text(".5")
+        } else {
+          handle2.text( ui.value );
+        }
         $.get( "http://localhost:8080/outputDelay/" + ui.value , function(data) {
       })
      }
     });
+
+    $('#ck_buff').click(function() {
+        var ck = $(this).is(':checked') ? "1" : "0"
+        $.get( "http://localhost:8080/buffering/" + ck, function(data) {
+          get_info();
+        });
+
+
+      }
+      );
 
 
   var g_in = new JustGage({
@@ -72,6 +86,12 @@
     title: "OutSpeed Mess/sec"
   });
   var oldfields = {}
+
+  function get_info() {
+   $.get( "http://localhost:8080/info", function(data) {
+     $("#binfo").html(data)
+   })
+  }
 
   function refresh() {
     $.get( "http://localhost:8080/speed", function(data) {
@@ -96,9 +116,7 @@
   $.get( "http://localhost:8080/inputDelay/1");
   $.get( "http://localhost:8080/outputDelay/1");
 
-  $.get( "http://localhost:8080/info", function(data) {
-    $("#binfo").html(data)
-  })
+  get_info();
 
   setInterval(function(){ refresh(); }, 1300);
 
@@ -122,11 +140,16 @@
 
 <body>
 
-<h1> MessageBuffer Simulator</h1><b><font color=blue><div id=binfo></div><br>
+<table border=0><tr><td>
+  <b><font size=+2>MessageBuffer Simulator. </b></td>
+
+</table><br>
+<b><font color=blue><div id=binfo></div><br>
 
 
 
 <table border=0 cellpadding=10 cellspacing=0 width=100%>
+  <tr><td>
 <tr><td bgcolor=#F0F0E0><b>Incoming Delay (millisecond):</b>
 <td bgcolor=#F0F0F0><div style='width:5px'></td>
     <td bgcolor=#FFF0F0> <b>Outgoing/Kafka Delay (millisecond):</b>

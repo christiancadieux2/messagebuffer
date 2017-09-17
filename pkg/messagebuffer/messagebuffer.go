@@ -110,6 +110,14 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	return kc, nil
 }
 
+func (kc *MessageBufferHandle) SetErrorMode(mode int) {
+	kc.errorMode = mode
+}
+
+func (kc *MessageBufferHandle) GetErrorMode() int {
+	return kc.errorMode
+}
+
 func (kc *MessageBufferHandle) GetConfig() string {
 	return fmt.Sprintf("%+v", kc.bufferConfig)
 }
@@ -143,7 +151,9 @@ func (kc *MessageBufferHandle) appendBuffers(f os.FileInfo) {
 }
 
 func (kc *MessageBufferHandle) popBuffers() {
-	kc.bufferList = kc.bufferList[1:]
+	if len(kc.bufferList) > 0 {
+		kc.bufferList = kc.bufferList[1:]
+	}
 }
 
 func (kc *MessageBufferHandle) GetBufferList() string {

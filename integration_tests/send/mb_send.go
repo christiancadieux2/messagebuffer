@@ -112,7 +112,7 @@ func main() {
 		cancel() // <- ctx.Done()
 	}()
 
-	go server(buffer, mode)
+	go server(buffer)
 
 	defer func() {
 		if err := buffer.Close(); err != nil {
@@ -165,7 +165,7 @@ func main() {
 // /injectError : Inject Provider error.")
 // /inputDelay/<microsecs> : delay when writing to buffer.
 // /optputDelay/<microsecs> : delay when writing to kafka
-func server(buffer *messagebuffer.MessageBufferHandle, mode int) {
+func server(buffer *messagebuffer.MessageBufferHandle) {
 
 	gin.SetMode(gin.ReleaseMode)
 	gin.DisableConsoleColor()
@@ -198,13 +198,28 @@ func server(buffer *messagebuffer.MessageBufferHandle, mode int) {
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid output delay (microsec)="+delay)
 		} else {
-			buffer.SetOutputDelay(delayMicros * 1000)
+			v := delayMicros * 1000
+			if delayMicros == 0 {
+				v = 500
+			}
+			buffer.SetOutputDelay(v)
 			c.String(http.StatusOK, "OK")
 		}
 	})
 
+	r.GET("/buffering/:val", func(c *gin.Context) {
+		buff := c.Param("val")
+		fmt.Println("buffering=", buff)
+		if buff == "1" {
+			buffer.SetErrorMode(messagebuffer.ModeAlwaysBuffer)
+		} else {
+			buffer.SetErrorMode(messagebuffer.ModeErrorOnError)
+		}
+		c.String(http.StatusOK, "OK")
+	})
+
 	r.GET("/info", func(c *gin.Context) {
-		if mode == messagebuffer.ModeErrorOnError {
+		if buffer.GetErrorMode() == messagebuffer.ModeErrorOnError {
 			c.String(http.StatusOK, "No Buffering")
 		} else {
 			c.String(http.StatusOK, "Buffering: "+buffer.GetConfig())
