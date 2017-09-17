@@ -243,6 +243,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 	var fPos int64
 	keepFile := false
 	var rowCnt int64
+
 	for {
 		var line0 []byte
 		var readErr error
@@ -251,7 +252,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
 		}
 		kc.statsCount++
-		if time.Since(kc.statsStart) >= 3*time.Second {
+		if time.Since(kc.statsStart) >= 1*time.Second {
 			lapse2 := time.Since(kc.statsStart)
 			kc.statsRate = int(float64(kc.statsCount) / lapse2.Seconds())
 			kc.statsCount = 0
