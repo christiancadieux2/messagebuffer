@@ -12,7 +12,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"comcast-viper/clog"
@@ -71,7 +70,7 @@ type MessageBufferHandle struct {
 	outputDelay    int
 	context        context.Context
 	logger         *clog.Logger
-	bufferCount    int32
+	bufferList     []string
 	statsStart     time.Time
 	statsCount     int64
 	statsRate      int
@@ -100,6 +99,7 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	kc.providerStatus = providerUp
 	kc.allDone = false
 	kc.statsStart = time.Now()
+	kc.bufferList = make([]string, 0)
 
 	kc.bufferSendChan = make(chan int8, 100)
 
@@ -108,6 +108,10 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	}
 
 	return kc, nil
+}
+
+func (kc *MessageBufferHandle) GetConfig() string {
+	return fmt.Sprintf("%+v", kc.bufferConfig)
 }
 
 // get list of files with 'processed' status
@@ -119,21 +123,39 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 		return nil, err
 	}
 	var count = 0
+	kc.bufferList = kc.bufferList[:0]
 	for _, f := range files {
 		name := f.Name()
 
 		if name[0:1] == readyPrefix {
 			count++
+			kc.appendBuffers(f)
 			results = append(results, name)
 		}
 	}
 	fmt.Println("DIRLIST, found=", count)
-	kc.bufferCount = int32(count)
 	return results, nil
 }
 
-func (kc *MessageBufferHandle) GetBufferCount() int {
-	return int(kc.bufferCount)
+func (kc *MessageBufferHandle) appendBuffers(f os.FileInfo) {
+	size := fmt.Sprintf("%s %.0fK", f.Name(), float64(f.Size())/1000)
+	kc.bufferList = util.AppendMax(kc.bufferList, size, 20)
+}
+
+func (kc *MessageBufferHandle) popBuffers() {
+	kc.bufferList = kc.bufferList[1:]
+}
+
+func (kc *MessageBufferHandle) GetBufferList() string {
+	out := ""
+	for _, f := range kc.bufferList {
+		if out != "" {
+			out = out + "," + f
+		} else {
+			out = out + f
+		}
+	}
+	return out
 }
 
 func (kc *MessageBufferHandle) GetOutRate() int {
@@ -200,23 +222,38 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 		if err != nil {
 			kc.logger.Info("Cannot create NewSyncProducer", err)
 			return nil
-		} else {
-			kc.logger.Info(" open producer")
+
 		}
 		start := time.Now()
 		keepFile, rowCnt := kc.processOneFile(name)
-		kc.logger.Info("    ", util.Speed(rowCnt, start, kc.provider.Name()))
+		kc.logger.Info("", util.Speed(rowCnt, start, kc.provider.Name()))
 
 		if !keepFile {
 			fullname := path.Join(kc.bufferConfig.BufferDir, name)
-			kc.logger.Info(" removing", fullname)
+			kc.logger.Info("removing", fullname)
 			os.Remove(fullname)
-			atomic.AddInt32(&kc.bufferCount, -1)
+			kc.popBuffers()
 		}
 		kc.provider.CloseProducer()
 
 	}
 	return nil
+}
+
+func (kc *MessageBufferHandle) throttleOutput() {
+	if kc.outputDelay > 0 && kc.errorMode != ModeErrorOnError {
+		time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
+	}
+}
+
+func (kc *MessageBufferHandle) cumulStats() {
+	kc.statsCount++
+	if time.Since(kc.statsStart) >= 1*time.Second {
+		lapse2 := time.Since(kc.statsStart)
+		kc.statsRate = int(float64(kc.statsCount) / lapse2.Seconds())
+		kc.statsCount = 0
+		kc.statsStart = time.Now()
+	}
 }
 
 // send one file to provider , wait on provider error,
@@ -226,7 +263,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 	dirPath := kc.bufferConfig.BufferDir
 	fullname := path.Join(dirPath, name)
-	kc.logger.Info("  processOneFile:", fullname)
+	kc.logger.Info("processOneFile:", fullname)
 	file, err := os.Open(fullname)
 	fPosStart := getSeek(kc.bufferConfig.BufferDir, name)
 	if fPosStart > 0 {
@@ -248,16 +285,9 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 		var line0 []byte
 		var readErr error
 
-		if kc.outputDelay > 0 {
-			time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
-		}
-		kc.statsCount++
-		if time.Since(kc.statsStart) >= 1*time.Second {
-			lapse2 := time.Since(kc.statsStart)
-			kc.statsRate = int(float64(kc.statsCount) / lapse2.Seconds())
-			kc.statsCount = 0
-			kc.statsStart = time.Now()
-		}
+		kc.throttleOutput()
+
+		kc.cumulStats()
 
 		line0, readErr = scanner.ReadBytes(rowDelim)
 		if readErr != nil {
@@ -267,7 +297,7 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 		ix := strings.Index(line, topicDelim)
 		if ix < 0 {
-			kc.logger.Info("Invalid line", line)
+			kc.logger.Info("Invalid line:", line)
 			continue
 		}
 		topic := string(line[0:ix])
@@ -403,12 +433,17 @@ func (kc *MessageBufferHandle) SetOutputDelay(s int) {
 	kc.outputDelay = s
 }
 
+func (kc *MessageBufferHandle) GetOutputDelay() int {
+
+	return kc.outputDelay
+}
+
 func (kc *MessageBufferHandle) newFileName() string {
 	t := time.Now()
 	t1 := fmt.Sprintf("%d%02d%02d-%02d%02d%02d", t.Year(), t.Month(), t.Day(),
 		t.Hour(), t.Minute(), t.Second())
 	fn := path.Join(kc.bufferConfig.BufferDir, t1)
-	kc.logger.Info("-  generating file", fn)
+	kc.logger.Info("generating file:", fn)
 	return fn
 }
 
@@ -419,7 +454,8 @@ func (kc *MessageBufferHandle) closeRenameFile() error {
 		newfile := path.Join(kc.currentBufferFilename[0:ix],
 			readyPrefix+kc.currentBufferFilename[ix+1:])
 		os.Rename(kc.currentBufferFilename, newfile)
-		atomic.AddInt32(&kc.bufferCount, 1)
+		fi, _ := os.Stat(newfile)
+		kc.appendBuffers(fi)
 		if len(kc.bufferSendChan) < 10 {
 			kc.bufferSendChan <- 1
 		}
@@ -453,7 +489,7 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 
 	if needNew {
 		kc.closeRenameFile()
-		kc.logger.Info("creating new file")
+
 		filename := kc.newFileName()
 
 		file, err := os.OpenFile(filename, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0666)
@@ -482,6 +518,8 @@ func (kc *MessageBufferHandle) getCurrentFile() (*os.File, error) {
 func (kc *MessageBufferHandle) WriteMessage(topic string, message string, key string) error {
 
 	if kc.errorMode == ModeErrorOnError {
+		kc.throttleOutput()
+		kc.cumulStats()
 		_, err := kc.provider.SendMessage(topic, message, key)
 		return err
 	}

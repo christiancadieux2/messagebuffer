@@ -40,12 +40,14 @@ func main() {
 
 	var outputDelay int
 	var messageLen int
+	var buffering bool
 	flag.IntVar(&iterations, "i", 100, "Iterations")
 	flag.StringVar(&topicS, "t", "test", "Topics")
 
 	flag.IntVar(&messageLen, "l", 100, "Message Len (100)")
 	flag.StringVar(&config, "c", CONFIG, "Config File")
 	flag.BoolVar(&help, "h", false, "help")
+	flag.BoolVar(&buffering, "B", false, "buffering")
 
 	flag.IntVar(&inputDelay, "w", 1000, "Input delay microsec (1000)")
 	flag.IntVar(&outputDelay, "p", 1000, "output delay microsec (1000) ")
@@ -83,7 +85,12 @@ func main() {
 		panic(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	var mode = messagebuffer.ModeAlwaysBuffer
+	var mode = messagebuffer.ModeErrorOnError
+
+	if buffering {
+		mode = messagebuffer.ModeAlwaysBuffer
+
+	}
 
 	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger, mode)
 
@@ -105,7 +112,7 @@ func main() {
 		cancel() // <- ctx.Done()
 	}()
 
-	go server(buffer)
+	go server(buffer, mode)
 
 	defer func() {
 		if err := buffer.Close(); err != nil {
@@ -123,7 +130,16 @@ func main() {
 	var lastx int
 	for x = 1; x <= iterations && !allDone; x++ {
 		if inputDelay > 0 {
-			time.Sleep(time.Duration(inputDelay) * time.Microsecond)
+			od := buffer.GetOutputDelay()
+			if !buffering {
+				max := inputDelay
+				if od > inputDelay {
+					max = od
+				}
+				time.Sleep(time.Duration(max) * time.Microsecond)
+			} else {
+				time.Sleep(time.Duration(inputDelay) * time.Microsecond)
+			}
 		}
 		if time.Since(startMod) > time.Duration(1*time.Second) {
 			speed(x-lastx, startMod, "")
@@ -149,7 +165,7 @@ func main() {
 // /injectError : Inject Provider error.")
 // /inputDelay/<microsecs> : delay when writing to buffer.
 // /optputDelay/<microsecs> : delay when writing to kafka
-func server(buffer *messagebuffer.MessageBufferHandle) {
+func server(buffer *messagebuffer.MessageBufferHandle, mode int) {
 
 	gin.SetMode(gin.ReleaseMode)
 	gin.DisableConsoleColor()
@@ -172,7 +188,7 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 			c.String(http.StatusBadRequest, "Invalid input delay (microsec)="+delay)
 		} else {
 			inputDelay = delayMicros
-			fmt.Println("inputdelay_microsec=", delayMicros)
+			//fmt.Println("inputdelay_microsec=", delayMicros)
 			c.String(http.StatusOK, "OK")
 		}
 	})
@@ -187,10 +203,18 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		}
 	})
 
+	r.GET("/info", func(c *gin.Context) {
+		if mode == messagebuffer.ModeErrorOnError {
+			c.String(http.StatusOK, "No Buffering")
+		} else {
+			c.String(http.StatusOK, "Buffering: "+buffer.GetConfig())
+		}
+	})
+
 	r.GET("/speed", func(c *gin.Context) {
 
-		out := fmt.Sprintf("%d,%d,%d",
-			currentInRate, buffer.GetOutRate(), buffer.GetBufferCount())
+		out := fmt.Sprintf("%d,%d,%s",
+			currentInRate, buffer.GetOutRate(), buffer.GetBufferList())
 		//fmt.Println("speed=", out)
 		c.String(http.StatusOK, out)
 	})
