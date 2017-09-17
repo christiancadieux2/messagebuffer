@@ -1,5 +1,0 @@
-export GOROOT=/opt/go
-PATH=$PATH:$GOROOT/bin
-export GOBIN=/opt/comcast/messagebuffer/bin
-
-export GOPATH=/opt/comcast/messagebuffer:/go

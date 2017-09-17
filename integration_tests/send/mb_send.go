@@ -5,6 +5,7 @@ import (
 	"christiancadieux2/messagebuffer/pkg/messagebuffer"
 	"christiancadieux2/messagebuffer/pkg/util"
 	"context"
+	"io"
 
 	"flag"
 	"fmt"
@@ -82,7 +83,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	buffer, err := messagebuffer.NewBuffer(ctx, kprovider, config, logger,
-		messagebuffer.ModeErrorOnError) // one MB buffer
+		messagebuffer.ModeAlwaysBuffer) // one MB buffer
 	if outputDelay > 0 {
 		buffer.SetOutputDelay(outputDelay)
 	}
@@ -148,6 +149,10 @@ func main() {
 func server(buffer *messagebuffer.MessageBufferHandle) {
 
 	gin.SetMode(gin.ReleaseMode)
+	gin.DisableConsoleColor()
+	f, _ := os.Create("gin.log")
+	gin.DefaultWriter = io.MultiWriter(f)
+
 	r := gin.Default()
 	r.Static("/html", "/home/cc88871/go/src/christiancadieux2/messagebuffer/html")
 
@@ -174,19 +179,17 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid output delay (microsec)="+delay)
 		} else {
-			buffer.SetOutputDelay(delayMicros)
+			buffer.SetOutputDelay(delayMicros * 1000)
 			c.String(http.StatusOK, "OK")
 		}
 	})
 
-	r.GET("/inspeed", func(c *gin.Context) {
-		fmt.Println("inspeed=", currentInRate, "indelay=", inputDelay)
-		c.String(http.StatusOK, fmt.Sprint(currentInRate))
-	})
+	r.GET("/speed", func(c *gin.Context) {
 
-	r.GET("/outspeed", func(c *gin.Context) {
-		fmt.Println("outspeed=")
-		c.String(http.StatusOK, fmt.Sprint(currentInRate))
+		out := fmt.Sprintf("%d,%d,%d",
+			currentInRate, buffer.GetOutRate(), buffer.GetBufferCount())
+		//fmt.Println("speed=", out)
+		c.String(http.StatusOK, out)
 	})
 
 	r.Run(":" + webPort)
@@ -198,7 +201,7 @@ func speed(count int, start time.Time, prefix string) {
 
 	rate := float64(count) / lapse2.Seconds()
 	currentInRate = int64(rate)
-	fmt.Printf("%s message sent: %d, duration: %v , rate: %.3f mess/s \n",
-		prefix, count, lapse2, rate)
+	//fmt.Printf("%s message sent: %d, duration: %v , rate: %.3f mess/s \n",
+	//	prefix, count, lapse2, rate)
 
 }

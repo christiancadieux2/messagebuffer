@@ -28,7 +28,7 @@
     var handle3 = $( "#buffer-handle" );
 
     $( "#slider1" ).slider({
-      max: 100,
+      max: 20,
       value: 1,
       min: 1,
       create: function() {
@@ -41,8 +41,8 @@
       }
     });
     $( "#slider2" ).slider({
-      max: 100,
-      value: 1,
+      max: 20,
+      value: 1, min:1,
       create: function() {
         handle2.text( $( this ).slider( "value" ) );
       },
@@ -53,42 +53,40 @@
      }
     });
 
-    $( "#slider3" ).slider({
-      max: 1000,
-      value: 0,
-      create: function() {
-        handle3.text( $( this ).slider( "value" ) );
-      },
-      slide: function( event, ui ) {
-        handle3.text( ui.value );
-      }
-    });
 
   var g_in = new JustGage({
     id: "gauge1",
     value: 10,
     min: 0,
     max: 10000,
-    title: "InSpeed KMess/sec"
+    title: "InSpeed Mess/sec"
   });
 
   var g_out = new JustGage({
     id: "gauge2",
     value: 10,
     min: 0,
-    max: 200,
-    title: "OutSpeed KMess/sec"
+    max: 10000,
+    title: "OutSpeed Mess/sec"
   });
 
   function refresh() {
-    $.get( "http://localhost:8080/inspeed", function(data) {
-      g_in.refresh(data);
+    $.get( "http://localhost:8080/speed", function(data) {
+      var fields = data.split(',')
+      g_in.refresh(fields[0]);
+      g_out.refresh(fields[1]);
+      var h = "<table border=0 cellpadding=6 cellspacing=4><tr>";
+      for (i =1; i <= parseInt(fields[2]);i++) {
+         h = h + "<td style='height:100px' bgcolor=#D0D0FF>" + i + "</td>"
+      }
+      h += "</taBLE>"
+      $("#buffer_count").html(h)
     });
   }
-        
+
 
   setInterval(function(){ refresh(); }, 2000);
-  
+
 
   });
 
@@ -132,8 +130,8 @@
 <td><div id=gauge2 style="width:300px; height:300px"></div></td>
 
 <tr><td colspan=3 bgcolor=#E0F4F4><b>#Buffers</td>
-<tr><td colspan=3><br><br><div style='width:800px' id="slider3">
-    <div id="buffer-handle" class="ui-slider-handle"></div>
+<tr><td colspan=3><br><div style='width:800px' id="buffer_count"></div>
+
 </div>
 
 

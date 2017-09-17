@@ -12,6 +12,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"comcast-viper/clog"
@@ -70,6 +71,10 @@ type MessageBufferHandle struct {
 	outputDelay    int
 	context        context.Context
 	logger         *clog.Logger
+	bufferCount    int32
+	statsStart     time.Time
+	statsCount     int64
+	statsRate      int
 }
 
 // NewBuffer Create messagebuffer.
@@ -81,7 +86,7 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	kc.context = ctx
 	bufferConfig, err := ReadConfig(configFilename)
 
-	if errorMode < ModeBlockOnError || errorMode > ModeErrorOnError {
+	if errorMode < ModeBlockOnError || errorMode > ModeAlwaysBuffer {
 		panic("errorMode is invalid!")
 	}
 	kc.errorMode = errorMode
@@ -94,6 +99,7 @@ func NewBuffer(ctx context.Context, provider Provider, configFilename string,
 	kc.state = stateLive
 	kc.providerStatus = providerUp
 	kc.allDone = false
+	kc.statsStart = time.Now()
 
 	kc.bufferSendChan = make(chan int8, 100)
 
@@ -112,14 +118,26 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	var count = 0
 	for _, f := range files {
 		name := f.Name()
+
 		if name[0:1] == readyPrefix {
+			count++
 			results = append(results, name)
 		}
 	}
+	fmt.Println("DIRLIST, found=", count)
+	kc.bufferCount = int32(count)
 	return results, nil
+}
+
+func (kc *MessageBufferHandle) GetBufferCount() int {
+	return int(kc.bufferCount)
+}
+
+func (kc *MessageBufferHandle) GetOutRate() int {
+	return kc.statsRate
 }
 
 // read buffer directory file by file, send to provider
@@ -131,6 +149,8 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 	var fileList []string
 	var err error
 
+	fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
+	kc.processFilesList(fileList)
 	for {
 		if kc.allDone {
 			break
@@ -142,6 +162,7 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 
 		case <-time.After(time.Second * time.Duration(kc.bufferConfig.FileMaxTime)):
 			if kc.state == stateLive {
+				fmt.Println("STATELIVE => BREAK")
 				break
 			}
 			fileList, err = kc.dirList(kc.bufferConfig.BufferDir)
@@ -184,8 +205,10 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 			fullname := path.Join(kc.bufferConfig.BufferDir, name)
 			kc.logger.Info(" removing", fullname)
 			os.Remove(fullname)
+			atomic.AddInt32(&kc.bufferCount, -1)
 		}
 		kc.provider.CloseProducer()
+
 	}
 	return nil
 }
@@ -220,6 +243,13 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 
 		if kc.outputDelay > 0 {
 			time.Sleep(time.Duration(kc.outputDelay) * time.Microsecond)
+		}
+		kc.statsCount++
+		if time.Since(kc.statsStart) >= 3*time.Second {
+			lapse2 := time.Since(kc.statsStart)
+			kc.statsRate = int(float64(kc.statsCount) / lapse2.Seconds())
+			kc.statsCount = 0
+			kc.statsStart = time.Now()
 		}
 
 		line0, readErr = scanner.ReadBytes(rowDelim)
@@ -362,6 +392,7 @@ func (kc *MessageBufferHandle) Close() error {
 
 // SetOutputDelay saves millisec to wait between calls to kafka
 func (kc *MessageBufferHandle) SetOutputDelay(s int) {
+
 	kc.outputDelay = s
 }
 
@@ -381,6 +412,7 @@ func (kc *MessageBufferHandle) closeRenameFile() error {
 		newfile := path.Join(kc.currentBufferFilename[0:ix],
 			readyPrefix+kc.currentBufferFilename[ix+1:])
 		os.Rename(kc.currentBufferFilename, newfile)
+		atomic.AddInt32(&kc.bufferCount, 1)
 		if len(kc.bufferSendChan) < 10 {
 			kc.bufferSendChan <- 1
 		}
