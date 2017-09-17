@@ -67,6 +67,7 @@ type MessageBufferHandle struct {
 	bufferSendChan chan int8
 	lastPruneTime  time.Time
 	fileMux        sync.Mutex
+	fileMux2       sync.Mutex
 	outputDelay    int
 	context        context.Context
 	logger         *clog.Logger
@@ -119,7 +120,12 @@ func (kc *MessageBufferHandle) GetErrorMode() int {
 }
 
 func (kc *MessageBufferHandle) GetConfig() string {
-	return fmt.Sprintf("%+v", kc.bufferConfig)
+
+	return fmt.Sprintf("FileMaxTime:%ds, FileMaxSize:%dM, TotalSize:%dM, Dir:%s",
+		kc.bufferConfig.FileMaxTime,
+		kc.bufferConfig.FileMaxSize,
+		kc.bufferConfig.TotalSize,
+		kc.bufferConfig.BufferDir)
 }
 
 // get list of files with 'processed' status
@@ -141,16 +147,20 @@ func (kc *MessageBufferHandle) dirList(path string) ([]string, error) {
 			results = append(results, name)
 		}
 	}
-	fmt.Println("DIRLIST, found=", count)
+	//fmt.Println("DIRLIST, found=", count)
 	return results, nil
 }
 
 func (kc *MessageBufferHandle) appendBuffers(f os.FileInfo) {
+	kc.fileMux2.Lock()
+	defer kc.fileMux2.Unlock()
 	size := fmt.Sprintf("%s %.0fK", f.Name(), float64(f.Size())/1000)
 	kc.bufferList = util.AppendMax(kc.bufferList, size, 20)
 }
 
 func (kc *MessageBufferHandle) popBuffers() {
+	kc.fileMux2.Lock()
+	defer kc.fileMux2.Unlock()
 	if len(kc.bufferList) > 0 {
 		kc.bufferList = kc.bufferList[1:]
 	}

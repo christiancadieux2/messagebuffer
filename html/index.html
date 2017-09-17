@@ -71,19 +71,19 @@
 
 
   var g_in = new JustGage({
-    id: "gauge1", label : "m/s",
+    id: "gauge1", label : "mess/sec",
     value: 0,
     min: 0,
     max: 5000,
-    title: "InSpeed Mess/sec"
+    title: "InSpeed"
   });
 
   var g_out = new JustGage({
-    id: "gauge2", label: "m/s",
+    id: "gauge2", label: "mess/sec",
     value: 0,
     min: 0, levelColors: ["red"],
     max: 5000,
-    title: "OutSpeed Mess/sec"
+    title: "OutSpeed"
   });
   var oldfields = {}
 
@@ -150,9 +150,9 @@
 
 <table style='border:1px solid silver' border=0 cellpadding=6 cellspacing=1 width=99%>
 
-<tr><td bgcolor=#F0F0E0><b>Incoming Delay (millisecond):</b>
+<tr><td bgcolor=#F0F0E0><b>Incoming Message Delay (millisecond):</b>
 <td bgcolor=#F0F0F0><div style='width:5px'></td>
-    <td bgcolor=#FFF0F0> <b>Outgoing/Kafka Delay (millisecond):</b>
+    <td bgcolor=#FFF0F0> <b>Outgoing Delay to Kafka (millisecond):</b>
 <tr><td bgcolor=#F0F0E0>
   <div style='margin:10px;width:400px' id="slider1">
     <div id="out-handle" class="ui-slider-handle"></div>
