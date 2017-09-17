@@ -105,7 +105,7 @@
           bg = "#FFE0E0"
         }
         oldfields[fields[i]] = 1
-        h = h + "<tr><td  bgcolor=" + bg + ">" + fields[i] + "</td>"
+        h = h + "<tr><td  bgcolor=" + bg + "> - " + fields[i] + "</td>"
       }
 
       h += "</taBLE>"
@@ -148,7 +148,7 @@
 
 
 
-<table border=0 cellpadding=10 cellspacing=0 width=100%>
+<table border=0 cellpadding=6 cellspacing=0 width=100%>
   <tr><td>
 <tr><td bgcolor=#F0F0E0><b>Incoming Delay (millisecond):</b>
 <td bgcolor=#F0F0F0><div style='width:5px'></td>
@@ -169,7 +169,7 @@
 <td bgcolor=#F0F0F0><div style='width:5px'></td>
 <td><center><div id=gauge2 style="width:300px; height:300px"></div></td>
 
-<tr><td colspan=3 bgcolor=#F0F0F0><b>Buffers </td>
+<tr><td colspan=3 bgcolor=#F0F0F0><b>Buffers  File/Size</td>
 <tr><td colspan=3><div style='width:800px' id="buffer_count"></div>
 
 </div>
