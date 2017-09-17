@@ -55,7 +55,7 @@
 
 
   var g_in = new JustGage({
-    id: "gauge1",
+    id: "gauge1", label : "m/s",
     value: 0,
     min: 0,
     max: 5000,
@@ -63,9 +63,9 @@
   });
 
   var g_out = new JustGage({
-    id: "gauge2",
+    id: "gauge2", label: "m/s",
     value: 0,
-    min: 0,
+    min: 0, levelColors: ["red"],
     max: 5000,
     title: "OutSpeed Mess/sec"
   });
