@@ -222,7 +222,11 @@ func (kc *MessageBufferHandle) processBufferFiles() error {
 			continue
 		}
 		if fileList != nil {
-			kc.processFilesList(fileList)
+			err = kc.processFilesList(fileList)
+			if err != nil {
+				kc.logger.Info("processFilesList failed, sleep and retry..")
+				time.Sleep(kc.provider.GetRetryWaitTime())
+			}
 		}
 
 		if time.Since(kc.lastPruneTime).Minutes() > float64(kc.bufferConfig.PruneFrequency) {
@@ -240,8 +244,8 @@ func (kc *MessageBufferHandle) processFilesList(fileList []string) error {
 	for _, name := range fileList {
 		err := kc.provider.OpenProducer()
 		if err != nil {
-			kc.logger.Info("Cannot create NewSyncProducer", err)
-			return nil
+			kc.logger.Info("processFilesList, openProducer failed", err)
+			return err
 
 		}
 		start := time.Now()
@@ -344,9 +348,12 @@ func (kc *MessageBufferHandle) processOneFile(name string) (bool, int64) {
 			kc.setDown()
 			retryStart := time.Now()
 			// wait less than PruneFrequency to avoid old messageFiles to pileup.
-			for time.Since(retryStart).Minutes() < float64(3/4*kc.bufferConfig.PruneFrequency) {
+			//fmt.Println("min=", time.Since(retryStart).Minutes(), ", freq=", float64(kc.bufferConfig.PruneFrequency),
+			//	", wait=", kc.provider.GetRetryWaitTime())
+			for int(time.Since(retryStart).Minutes()) < kc.bufferConfig.PruneFrequency {
+				kc.logger.Info("retrying provider every ", kc.provider.GetRetryWaitTime())
 				time.Sleep(kc.provider.GetRetryWaitTime())
-				kc.logger.Info("retrying provider..")
+
 				_, err = kc.provider.SendMessage(topic, mess, key) // return partition, offset
 				if err == nil {
 					kc.setUp()
