@@ -149,31 +149,26 @@
 
 
 <table style='border:1px solid silver' border=0 cellpadding=6 cellspacing=1 width=99%>
-
-<tr><td bgcolor=#F0F0E0><b>Incoming Message Delay (millisecond):</b>
-<td bgcolor=#F0F0F0><div style='width:5px'></td>
-    <td bgcolor=#FFF0F0> <b>Outgoing Delay to Kafka (millisecond):</b>
-<tr><td bgcolor=#F0F0E0>
-  <div style='margin:10px;width:400px' id="slider1">
+<tr>
+  <td bgcolor=#F0F0E0><b>Incoming Message Delay (millisecond):</b></td>
+  <td bgcolor=#F0F0F0 rowspan=3><div style='width:5px'></td>
+  <td bgcolor=#FFF0F0> <b>Outgoing Delay to Kafka (millisecond):</b></td>
+<tr>
+  <td bgcolor=#F0F0E0><div style='margin:10px;width:400px' id="slider1">
     <div id="out-handle" class="ui-slider-handle"></div>
-  </div>
-<td bgcolor=#F0F0F0><div style='width:5px'></td>
-<td  bgcolor=#FFF0F0>
-  <div style='margin:10px;width:400px' id="slider2">
+    </div></td>
+  <td  bgcolor=#FFF0F0><div style='margin:10px;width:400px' id="slider2">
     <div id="in-handle" class="ui-slider-handle"></div>
-  </div>
+    </div></td>
 
+<tr>
+   <td><center><div id=gauge1 style="width:300px; height:300px"></div></td>
+   <td><center><div id=gauge2 style="width:300px; height:300px"></div></td>
 
-
-<tr><td><center><div id=gauge1 style="width:300px; height:300px"></div></td>
-<td bgcolor=#F0F0F0><div style='width:5px'></td>
-<td><center><div id=gauge2 style="width:300px; height:300px"></div></td>
-
-<tr><td colspan=3 bgcolor=#F0F0F0><b>Buffers  File/Size</td>
-<tr><td colspan=3><div style='width:800px' id="buffer_count"></div>
-
-</div>
-
+<tr>
+  <td colspan=3 bgcolor=#F0F0F0><b>Buffers  File/Size</td>
+<tr>
+  <td colspan=3><div style='width:800px' id="buffer_count"></div></td>
 
 </table>
 </body>

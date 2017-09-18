@@ -21,13 +21,11 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// CONFIG : config
-var CONFIG = "/home/cc88871/go/src/christiancadieux2/messagebuffer/integration_tests/send/config.json"
-
 var defaultTopic = "raw.viper.sumatra.collector.LogEvent"
 var inputDelay int
 var webPort = "8080"
 var currentInRate int64
+var BASE string
 
 func main() {
 
@@ -41,6 +39,12 @@ func main() {
 	var outputDelay int
 	var messageLen int
 	var buffering bool
+	BASE = os.Getenv("CONFIGBASE")
+	if BASE == "" {
+		panic("No CONFIGBASE")
+	}
+	var CONFIG = BASE + "/integration_tests/send/config.json"
+
 	flag.IntVar(&iterations, "i", 100, "Iterations")
 	flag.StringVar(&topicS, "t", "test", "Topics")
 
@@ -72,6 +76,7 @@ func main() {
 	if iterations == 0 {
 		iterations = 10000000000
 	}
+
 	khost := os.Getenv("KHOST")
 	if khost == "" {
 		khost = "localhost"
@@ -177,7 +182,7 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 	gin.DefaultWriter = io.MultiWriter(f)
 
 	r := gin.Default()
-	r.Static("/html", "/home/cc88871/go/src/christiancadieux2/messagebuffer/html")
+	r.Static("/html", BASE+"/html")
 
 	r.GET("/injectError", func(c *gin.Context) {
 		fmt.Println("Inject Error")

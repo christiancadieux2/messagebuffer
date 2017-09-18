@@ -83,6 +83,8 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 ![Diagram](https://user-images.githubusercontent.com/10535265/30186693-d5669528-93e3-11e7-89b9-25bd269ac228.png)
 -
 
+# Simulation
+![Diagram](https://user-images.githubusercontent.com/31523474/30551773-e631ab18-9c58-11e7-8206-7f2fccbe3afb.png)
 
 
 
