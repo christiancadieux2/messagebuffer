@@ -1,3 +1,4 @@
+# instal/run
 go install integration_tests/send/mb_send.go 
 export CONFIGBASE=$GOPATH/src/christiancadieux2/messagebuffer
 go run integration_tests/send/mb_send.go  -i 0 -B
