@@ -90,7 +90,7 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 ![kafkaprovider](https://user-images.githubusercontent.com/31523474/30622469-109f6536-9d6f-11e7-96b9-f8fc100ac2a3.png)
 
 ## messagebuffer
-![mb](https://user-images.githubusercontent.com/31523474/30644988-81156aba-9dd1-11e7-9d46-7297b6445d57.png)
+![mb2](https://user-images.githubusercontent.com/31523474/30645270-6c818b46-9dd2-11e7-8ee1-12550d6cd3b5.png)
 
 
 Jeff Dean: "Numbers everyone should know."
