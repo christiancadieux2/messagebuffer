@@ -1,5 +1,5 @@
 {
- "file_max_time" : 10,
+ "file_max_time" : 5,
  "file_max_size" : 2,
  "total_size" : 100,
  "buffer_dir" : "/tmp/kafka",

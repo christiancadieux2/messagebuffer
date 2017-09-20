@@ -42,7 +42,7 @@ func main() {
 		}
 	}()
 
-	topic := "important"
+	topic := "raw.mirrored.xre.x1.events"
 	pid := os.Getpid()
 	for x := 1; x <= *iterations; x++ {
 		fmt.Printf("%d", x)

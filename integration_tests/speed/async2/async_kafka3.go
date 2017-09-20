@@ -5,15 +5,13 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strconv"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/Shopify/sarama"
 )
 
-var connector = "172.17.0.1:9092"
+var LOCALCONNECT = "172.17.0.1:9092"
 
 // send messages over multiple topics at the same time using goroutines
 
@@ -25,44 +23,46 @@ func main() {
 
 	var waitMs int
 	var reps int
-	var goreps int // # of goroutines
 	var messageBodySize int
+	var khost string
+	var topic string
+	var help bool
+
+	flag.StringVar(&khost, "k", LOCALCONNECT, "kafka server")
+	flag.StringVar(&topic, "t", "test", "Topic")
+	flag.IntVar(&reps, "r", 10, "# of messages")
 
 	flag.IntVar(&waitMs, "w", 0, "Delay ms (0)")
-	flag.IntVar(&reps, "m", 10, "# of messages")
-	flag.IntVar(&goreps, "g", 1, "# of goroutines")
-	flag.IntVar(&messageBodySize, "s", 100, "Message Body Size")
+	flag.BoolVar(&help, "h", false, "Help")
+
+	flag.IntVar(&messageBodySize, "s", 10, "Message Body Size")
 	flag.Parse()
+
+	if help {
+		fmt.Println("async_kafka3.go -k <host> -t <topic:test> -r <reps:10>")
+		os.Exit(1)
+	}
 
 	signals := make(chan os.Signal, 1)
 	signal.Notify(signals, syscall.SIGINT, syscall.SIGTERM)
 
-	var wg sync.WaitGroup
+	var start = time.Now()
+	fmt.Println("host=", khost, "topic=", topic)
 
-	var start = time.Now().UnixNano() / int64(time.Millisecond)
+	sendMess(khost, topic, messageBodySize, waitMs, reps, config, signals)
 
-	wg.Add(goreps)
-	for i := 0; i < goreps; i++ {
-		go sendMess("topic"+strconv.Itoa(i), messageBodySize,
-			waitMs, reps, config, signals, &wg)
-	}
+	var duration = time.Since(start).Seconds()
 
-	fmt.Println("blocking:start")
-	wg.Wait()
-	fmt.Println("blocking:end")
-
-	var duration = time.Now().UnixNano()/int64(time.Millisecond) - start
-	enqueued := int64(reps * goreps)
-	var rate = enqueued / duration * 1000
+	var rate = float64(reps) / duration
 	fmt.Println("\nAsyncProducer2")
-	fmt.Printf("message sent %d, duration %d ms, rate=%d mess/s\n", enqueued, duration, rate)
-	fmt.Println("\nasync_kafka2 -w <delay:0> -m <#messages:1000> -g<#goroutines(1)> ")
+	fmt.Printf("message sent %d, duration %v, rate=%.2f mess/s\n", reps, duration, rate)
 }
 
-func sendMess(topic string, messageBodySize int, waitMs int, reps int, config *sarama.Config, signals chan os.Signal, wg *sync.WaitGroup) {
+func sendMess(khost string, topic string, messageBodySize int,
+	waitMs int, reps int, config *sarama.Config,
+	signals chan os.Signal) {
 
-	producer, err := sarama.NewAsyncProducer([]string{connector}, config)
-	fmt.Println("topic = ", topic)
+	producer, err := sarama.NewAsyncProducer([]string{khost + ":9092"}, config)
 
 	if err != nil {
 		panic(err)
@@ -100,6 +100,17 @@ ProducerLoop:
 			break ProducerLoop
 		}
 	}
-	wg.Done()
+	fmt.Println("Waiting for errors..")
+
+	start2 := time.Now()
+	select {
+	case er := <-producer.Errors():
+		errors++
+		fmt.Printf("%s \n", er)
+	case <-time.After(2000 * time.Millisecond):
+		fmt.Println("2 seconds done.")
+	}
+	fmt.Println("waiting for error", time.Since(start2))
+
 	fmt.Println("loop done, errors=", errors, "sent=", enqueued)
 }

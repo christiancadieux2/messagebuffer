@@ -70,7 +70,9 @@ TODO:
 
  - Use separate kafka connector and goroutine for each kafka 'topic' or group of topics to improve performance. kafka for example scale by partition/topic.
 
- - Add an option to send messages directly to the provider and bypass the buffer files until the first provider error occur. This prevents the delay between message generation and messages available to the provider. At the firt error, switch to buffered mode so the client does not have to block or deal with errors. This could be a useful options for cases where getting the message to kafka in real-time if possible is needed.
+ - Add an option to send messages directly to the provider and bypass the buffer files until the first provider error occur. At the firt error, switch to buffered mode so the client does not have to block or deal with errors. 
+ - Use a channel to write to messagebuffer. monitor the channel to decide to buffer or not.
+ - Try to go back to live-mode when kafka can keep up. go to buffer mode when kafka is down or slow.
 
  - use clog.
 
@@ -114,6 +116,9 @@ Send packet CA->Netherlands->CA      150,000,000 ns
 *Write 1MB sequentially to disk       10,000,000 ns    1/100 second
 *Write 1MB over 1GBps network         10,000,000 ns
 *Compress 1M bytes with Zippy          3,000,000 ns
+
+DiskDrive: 100M/second
+SSD      : 480M/second
 
 
 ```

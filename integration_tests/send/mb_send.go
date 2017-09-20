@@ -41,7 +41,7 @@ func main() {
 	var buffering bool
 	BASE = os.Getenv("CONFIGBASE")
 	if BASE == "" {
-		panic("No CONFIGBASE")
+		BASE = "/Users/ccadie311/go/src/christiancadieux2/messagebuffer/"
 	}
 	var CONFIG = BASE + "/integration_tests/send/config.json"
 
@@ -59,6 +59,7 @@ func main() {
 	flag.Parse()
 	if help {
 		fmt.Println(`
+	KHOST="consumer-kafka.hdw.r53.deap.tv"
   send -i <iter> -t <topic> -c <config> -w <wait> -p <pace>
      -i <iterations>: iterations (10)
 
@@ -138,6 +139,11 @@ func main() {
 	fmt.Println("Input Delay:", inputDelay, "microsecs", "\n...")
 	var lastx int
 	for x = 1; x <= iterations && !allDone; x++ {
+		select {
+		case <-ctx.Done():
+			break
+		default:
+		}
 		if inputDelay > 0 {
 			od := buffer.GetOutputDelay()
 			if !buffering {
@@ -204,6 +210,7 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 	r.GET("/outputDelay/:delay", func(c *gin.Context) {
 		delay := c.Param("delay")
 		delayMicros, err := strconv.Atoi(delay)
+
 		if err != nil {
 			c.String(http.StatusBadRequest, "Invalid output delay (microsec)="+delay)
 		} else {
@@ -211,6 +218,7 @@ func server(buffer *messagebuffer.MessageBufferHandle) {
 			if delayMicros == 0 {
 				v = 500
 			}
+			fmt.Println("outdelay=", delayMicros)
 			buffer.SetOutputDelay(v)
 			c.String(http.StatusOK, "OK")
 		}
