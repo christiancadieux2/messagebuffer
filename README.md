@@ -78,14 +78,16 @@ TODO:
 The kafka provider uses the Sarama kafka library in async mode to send messages to kafka. It implements NewProvider, OpenProducer, SendMessage, CloseProducer and GetRetryWaitTime.
 In async mode, sending messages to kafka is much faster but a 'select' need to be used to send to the Input() channel at the same time as listening on the Error() channel.
 
-# Diagram
+## Diagram
 
 ![Diagram](https://user-images.githubusercontent.com/10535265/30186693-d5669528-93e3-11e7-89b9-25bd269ac228.png)
 -
 
-# Simulation
+## Simulation
 ![Diagram](https://user-images.githubusercontent.com/31523474/30551773-e631ab18-9c58-11e7-8206-7f2fccbe3afb.png)
 
+## kafkaprovider
+![kafkaprovider](https://user-images.githubusercontent.com/31523474/30622469-109f6536-9d6f-11e7-96b9-f8fc100ac2a3.png)
 
 
 Jeff Dean: "Numbers everyone should know."
