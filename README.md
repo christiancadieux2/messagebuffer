@@ -57,10 +57,11 @@ Modern disk-drives can do 100MB/second / (100 bytes messages) is 1M mess/s.
 
 Speed Tests: Done on ubuntu/corei7 3.6Ghz with kafka single node running locally in container.
 ```
-   sarama-sync  :   15K mess/sec
-   sarama-async :  450K mess/s
-   confluent 'C':   45K mess/s
-   file-buffer  :  1200K message/sec
+   sarama-sync        :   15K mess/sec
+   sarama-sync-batch  :   200K mess/sec
+   sarama-async       :  450K mess/s
+   confluent 'C'      :   45K mess/s
+   file-buffer        :  1200K message/sec
 ```
 
 The 'C' interface is faster than sarama-sync but sarama-async is much faster. There is probably a way to use the 'C'library in async mode but sarama has much better documentation and finding async examples was easier to I stayed with sarama. Also, must easier to install.
