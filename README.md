@@ -87,11 +87,12 @@ In async mode, sending messages to kafka is much faster but a 'select' need to b
 ## Simulation
 ![Diagram](https://user-images.githubusercontent.com/31523474/30551773-e631ab18-9c58-11e7-8206-7f2fccbe3afb.png)
 
+
 ## kafkaprovider
-![kafkaprovider](https://user-images.githubusercontent.com/31523474/30622469-109f6536-9d6f-11e7-96b9-f8fc100ac2a3.png)
+![mb2](https://user-images.githubusercontent.com/31523474/30645270-6c818b46-9dd2-11e7-8ee1-12550d6cd3b5.png)
 
 ## messagebuffer
-![mb2](https://user-images.githubusercontent.com/31523474/30645270-6c818b46-9dd2-11e7-8ee1-12550d6cd3b5.png)
+![mb3](https://user-images.githubusercontent.com/31523474/30645379-d0f68f90-9dd2-11e7-8abf-25068dd2ef85.png)
 
 
 Jeff Dean: "Numbers everyone should know."
