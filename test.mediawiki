@@ -1,5 +1,5 @@
 {| class="wikitable"
-!colspan=6|Shopping List
+!colspan="6"|Shopping List
 |-
 |rowspan="2"|Bread & Butter
 |Pie
